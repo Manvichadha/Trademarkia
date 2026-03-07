@@ -1,0 +1,189 @@
+@import "tailwindcss";
+
+:root {
+  /* Core background surfaces */
+  --bg-base: #080a0f;
+  --bg-surface-1: #0e1117;
+  --bg-surface-2: #161b25;
+  --bg-surface-3: #1e2533;
+
+  /* Borders & grid lines */
+  --border-subtle: #2a3344;
+
+  /* Accents */
+  --accent-primary: #4f8ef7;
+  --accent-secondary: #7c3aed;
+  --accent-success: #10b981;
+  --accent-warning: #f59e0b;
+  --accent-danger: #ef4444;
+
+  /* Text */
+  --text-primary: #e8edf5;
+  --text-secondary: #6b7a99;
+  --text-muted: #3d4b63;
+
+  /* Ambient */
+  --ambient-grid-dot: rgba(79, 142, 247, 0.16);
+  --ambient-grid-bg: radial-gradient(circle at 1px 1px, var(--ambient-grid-dot) 1px, transparent 0);
+}
+
+@theme inline {
+  /* Colors */
+  --color-bg-base: var(--bg-base);
+  --color-surface-1: var(--bg-surface-1);
+  --color-surface-2: var(--bg-surface-2);
+  --color-surface-3: var(--bg-surface-3);
+  --color-border-subtle: var(--border-subtle);
+
+  --color-primary: var(--accent-primary);
+  --color-secondary: var(--accent-secondary);
+  --color-success: var(--accent-success);
+  --color-warning: var(--accent-warning);
+  --color-danger: var(--accent-danger);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  /* Fonts – wired to next/font variables set in RootLayout */
+  --font-display: var(--font-syne);
+  --font-body: var(--font-dm-sans);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-dm-sans, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+      "Segoe UI", sans-serif);
+}
+
+/* Ambient animated grid background – used on auth and editor shells */
+.ambient-grid {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--bg-base);
+  background-image: var(--ambient-grid-bg);
+  background-size: 32px 32px;
+  animation: ambient-grid-pulse 10s ease-in-out infinite alternate;
+}
+
+.ambient-grid::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(circle at 0% 0%, rgba(79, 142, 247, 0.22), transparent 60%),
+    radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.18), transparent 60%);
+  opacity: 0.9;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Simple shimmer used for incoming cell updates (hooked later) */
+.shimmer-flash {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-flash::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(79, 142, 247, 0.25) 40%,
+    rgba(79, 142, 247, 0.15) 60%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  animation: shimmer-sweep 600ms ease-out forwards;
+  pointer-events: none;
+}
+
+/* Selection glow pulse (used by SelectionOverlay later) */
+.selection-glow {
+  box-shadow:
+    0 0 0 2px var(--accent-primary),
+    0 0 12px rgba(79, 142, 247, 0.3);
+  animation: selection-pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes ambient-grid-pulse {
+  0% {
+    opacity: 0.55;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: translate3d(-4px, -4px, 0) scale(1.01);
+  }
+  100% {
+    opacity: 0.6;
+    transform: translate3d(4px, 4px, 0) scale(1.015);
+  }
+}
+
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes selection-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px var(--accent-primary),
+      0 0 8px rgba(79, 142, 247, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px var(--accent-primary),
+      0 0 18px rgba(79, 142, 247, 0.4);
+  }
+}
+
+@layer utilities {
+  .text-gradient-brand {
+    background: linear-gradient(120deg, #4f8ef7, #7c3aed);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  .glass-panel {
+    background: radial-gradient(circle at 0% 0%, rgba(79, 142, 247, 0.16), transparent 55%),
+      radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.14), transparent 55%),
+      rgba(14, 17, 23, 0.9);
+    border-radius: 1.4rem;
+    border: 1px solid rgba(42, 51, 68, 0.9);
+    box-shadow:
+      0 18px 45px rgba(0, 0, 0, 0.7),
+      0 0 0 1px rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(26px) saturate(150%);
+  }
+
+  .fade-slide-up {
+    opacity: 0;
+    transform: translateY(8px);
+    animation: fade-slide-up 260ms ease-out forwards;
+  }
+}
+
+@keyframes fade-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
