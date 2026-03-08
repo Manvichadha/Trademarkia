@@ -14,6 +14,8 @@ interface CellProps {
   row: number;
   col: number;
   updatedBy: string;
+  onCellMouseDown?: (row: number, col: number, e: React.MouseEvent) => void;
+  onCellMouseEnter?: (row: number, col: number) => void;
 }
 
 function formatDisplayValue(value: string | number | boolean | null): string {
@@ -22,13 +24,15 @@ function formatDisplayValue(value: string | number | boolean | null): string {
   return String(value);
 }
 
-export function Cell({ row, col, updatedBy }: CellProps) {
+export function Cell({ row, col, updatedBy, onCellMouseDown, onCellMouseEnter }: CellProps) {
   const cellId = toCellId({ row, col });
   const { sheet, updateCell } = useSpreadsheet(updatedBy);
   const { isCellSelected, isActiveCell, selectCell } = useCellSelection();
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
+  const [showShimmer, setShowShimmer] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevUpdatedByRef = useRef<string | null>(null);
 
   const cell = sheet[cellId];
   const displayValue = cell ? getDisplayValue(sheet, cellId) : null;
@@ -37,9 +41,32 @@ export function Cell({ row, col, updatedBy }: CellProps) {
   const active = isActiveCell(row, col);
   const formatting = cell?.formatting ?? {};
 
-  const handleClick = useCallback(() => {
-    selectCell(row, col);
-  }, [row, col, selectCell]);
+  // Trigger shimmer animation when another user updates this cell
+  useEffect(() => {
+    if (cell?.updatedBy && cell.updatedBy !== prevUpdatedByRef.current && cell.updatedBy !== updatedBy) {
+      setShowShimmer(true);
+      const timer = setTimeout(() => setShowShimmer(false), 600);
+      prevUpdatedByRef.current = cell.updatedBy;
+      return () => clearTimeout(timer);
+    }
+    if (cell?.updatedBy) {
+      prevUpdatedByRef.current = cell.updatedBy;
+    }
+  }, [cell?.updatedBy, updatedBy]);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (!editing) {
+      selectCell(row, col);
+    }
+  }, [row, col, selectCell, editing]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    onCellMouseDown?.(row, col, e);
+  }, [row, col, onCellMouseDown]);
+
+  const handleMouseEnter = useCallback(() => {
+    onCellMouseEnter?.(row, col);
+  }, [row, col, onCellMouseEnter]);
 
   const handleDoubleClick = useCallback(() => {
     setEditValue(cell?.raw ?? "");
@@ -88,7 +115,7 @@ export function Cell({ row, col, updatedBy }: CellProps) {
     ...(formatting.bold && { fontWeight: 700 }),
     ...(formatting.italic && { fontStyle: "italic" }),
     ...(formatting.color && { color: formatting.color }),
-    ...(formatting.bgColor && { backgroundColor: formatting.bgColor }),
+    ...(formatting.bgColor && formatting.bgColor !== "transparent" && { backgroundColor: formatting.bgColor }),
     ...(formatting.align && { textAlign: formatting.align }),
   };
 
@@ -98,15 +125,17 @@ export function Cell({ row, col, updatedBy }: CellProps) {
       tabIndex={-1}
       aria-label={`Cell ${cellId}`}
       className={`relative flex items-center overflow-hidden border-b border-r border-border-subtle px-2 py-0.5 text-sm ${
-        selected ? "bg-primary/10" : "bg-surface-1"
-      } ${active ? "ring-2 ring-inset ring-primary" : ""}`}
+        selected && !active ? "bg-primary/8" : "bg-surface-1"
+      } ${active ? "cell-selection-glow z-10" : ""} ${showShimmer ? "shimmer-flash" : ""}`}
       style={style}
       onClick={handleClick}
+      onMouseDown={handleMouseDown}
+      onMouseEnter={handleMouseEnter}
       onDoubleClick={handleDoubleClick}
     >
-      {hasFormula && (
+      {hasFormula && !editing && (
         <span
-          className="absolute left-0.5 top-0.5 h-1.5 w-1.5 rounded-sm bg-accent-success"
+          className="absolute left-0.5 top-0.5 h-2 w-2 rounded-sm bg-accent-success"
           aria-hidden
         />
       )}
@@ -119,6 +148,7 @@ export function Cell({ row, col, updatedBy }: CellProps) {
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           className="h-full w-full min-w-0 border-0 bg-transparent px-0 py-0 text-inherit outline-none"
+          autoFocus
         />
       ) : (
         <span className="truncate font-mono text-text-primary">

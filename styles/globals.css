@@ -192,3 +192,64 @@ body {
   }
 }
 
+/* Context menu animation */
+@keyframes context-menu-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-context-menu {
+  animation: context-menu-enter 150ms ease-out forwards;
+}
+
+/* Enhanced cell selection glow */
+.cell-selection-glow {
+  position: relative;
+}
+
+.cell-selection-glow::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 2px solid var(--accent-primary);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(79, 142, 247, 0.3), 0 0 12px rgba(79, 142, 247, 0.25);
+  pointer-events: none;
+  animation: selection-glow-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes selection-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(79, 142, 247, 0.3), 0 0 8px rgba(79, 142, 247, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgba(79, 142, 247, 0.4), 0 0 16px rgba(79, 142, 247, 0.35);
+  }
+}
+
+/* Multi-cell selection overlay */
+.selection-range-overlay {
+  background-color: rgba(79, 142, 247, 0.12);
+  border: 1px solid rgba(79, 142, 247, 0.4);
+}
+
+/* Color picker swatch */
+.color-swatch {
+  transition: transform 100ms ease, box-shadow 100ms ease;
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.color-swatch.active {
+  box-shadow: 0 0 0 2px var(--accent-primary), 0 0 0 4px rgba(79, 142, 247, 0.3);
+}
+
