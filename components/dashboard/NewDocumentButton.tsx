@@ -7,7 +7,7 @@ import { Modal } from "@/components/ui/Modal";
 import { createSpreadsheetDocument } from "@/lib/firebase/firestore";
 import { useAuth } from "@/hooks/useAuth";
 
-export function NewDocumentButton() {
+export function NewDocumentButton({ customTrigger }: { customTrigger?: React.ReactNode } = {}) {
   const router = useRouter();
   const { user } = useAuth();
   const [open, setOpen] = useState<boolean>(false);
@@ -42,15 +42,21 @@ export function NewDocumentButton() {
 
   return (
     <>
-      <Button
-        variant="primary"
-        size="md"
-        onClick={() => setOpen(true)}
-        aria-label="Create a new spreadsheet"
-        className="h-12 px-6 text-base font-semibold"
-      >
-        + New spreadsheet
-      </Button>
+      {customTrigger ? (
+        <div onClick={() => setOpen(true)} className="cursor-pointer h-full w-full outline-none" role="button" tabIndex={0}>
+          {customTrigger}
+        </div>
+      ) : (
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => setOpen(true)}
+          aria-label="Create a new spreadsheet"
+          className="h-12 px-6 text-base font-semibold transition-transform hover:scale-105"
+        >
+          + New spreadsheet
+        </Button>
+      )}
       <Modal
         open={open}
         title="New spreadsheet"

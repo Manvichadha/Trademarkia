@@ -10,10 +10,18 @@ import {
   where,
   onSnapshot,
   orderBy,
+  writeBatch,
+  doc,
+  deleteDoc,
+  getDocs,
+  updateDoc,
+  arrayUnion,
+  type QuerySnapshot,
   type Unsubscribe,
 } from "firebase/firestore";
 import { getFirebaseClients } from "./config";
 import type { SpreadsheetDocument } from "@/types";
+import type { CellData } from "@/lib/spreadsheet/types";
 
 export function getFirestoreClient(): Firestore {
   const { firestore } = getFirebaseClients();
@@ -38,7 +46,10 @@ interface FirestoreSpreadsheetDocument {
 export async function createSpreadsheetDocument(
   ownerId: string,
   title: string,
+  initialCells?: Record<string, CellData>,
+  initialColWidths?: Record<number, number>
 ): Promise<SpreadsheetDocument> {
+  const firestore = getFirestoreClient();
   const documents = getCollection<FirestoreSpreadsheetDocument>("documents");
 
   const nowServerTimestamp = serverTimestamp();
@@ -51,6 +62,36 @@ export async function createSpreadsheetDocument(
       updatedAt: nowServerTimestamp,
       collaborators: [],
     });
+
+    const metaRef = doc(firestore, "documents", docRef.id, "metadata", "main");
+    
+    // Batch write initial metadata and cells if provided
+    const batch = writeBatch(firestore);
+    
+    // Always write the metadata document for proper initialization
+    batch.set(metaRef, {
+      title,
+      colWidths: initialColWidths ?? {},
+      rowHeights: {},
+      updatedAt: Date.now()
+    }, { merge: true });
+
+    if (initialCells) {
+      const nowMs = Date.now();
+      for (const [cellId, cellData] of Object.entries(initialCells)) {
+        const cellRef = doc(firestore, "documents", docRef.id, "cells", cellId);
+        batch.set(cellRef, {
+          raw: cellData.raw,
+          formula: cellData.formula ?? null,
+          computed: cellData.computed ?? null,
+          formatting: cellData.formatting ?? {},
+          updatedAt: nowMs,
+          updatedBy: ownerId,
+        });
+      }
+    }
+    
+    await batch.commit();
 
     const now = new Date();
     return {
@@ -65,6 +106,37 @@ export async function createSpreadsheetDocument(
     console.error("Failed to create spreadsheet document", error);
     throw error;
   }
+}
+
+export async function deleteSpreadsheetDocument(docId: string): Promise<void> {
+  const firestore = getFirestoreClient();
+  const batch = writeBatch(firestore);
+
+  // 1. Delete all cells in the subcollection
+  const cellsRef = collection(firestore, "documents", docId, "cells");
+  const cellsSnap = await getDocs(cellsRef);
+  cellsSnap.forEach((cellDoc) => {
+    batch.delete(cellDoc.ref);
+  });
+
+  // 2. Delete metadata
+  const metaRef = doc(firestore, "documents", docId, "metadata", "main");
+  batch.delete(metaRef);
+
+  // 3. Delete parent document
+  const parentRef = doc(firestore, "documents", docId);
+  batch.delete(parentRef);
+
+  await batch.commit();
+}
+
+export async function addCollaborator(docId: string, collaboratorUid: string): Promise<void> {
+  const firestore = getFirestoreClient();
+  const docRef = doc(firestore, "documents", docId);
+  await updateDoc(docRef, {
+    collaborators: arrayUnion(collaboratorUid),
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export type SpreadsheetDocumentsListener = (docs: SpreadsheetDocument[]) => void;
@@ -89,41 +161,43 @@ export function listenToUserSpreadsheets(
 
   const seen = new Map<string, SpreadsheetDocument>();
 
-  const handleSnapshot = (snapshotDocs: FirestoreSpreadsheetDocument[], ids: string[]) => {
-    snapshotDocs.forEach((data, index) => {
-      const id = ids[index]!;
-      const createdAt =
-        data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date();
-      const updatedAt =
-        data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date();
+  const handleSnapshot = (snapshot: QuerySnapshot<FirestoreSpreadsheetDocument>) => {
+    let hasChanges = false;
+    snapshot.docChanges().forEach((change) => {
+      hasChanges = true;
+      const id = change.doc.id;
+      
+      if (change.type === "removed") {
+        seen.delete(id);
+      } else {
+        const data = change.doc.data();
+        const createdAt =
+          data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date();
+        const updatedAt =
+          data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date();
 
-      seen.set(id, {
-        id,
-        title: data.title,
-        ownerId: data.ownerId,
-        createdAt,
-        updatedAt,
-        collaborators: data.collaborators ?? [],
-      });
+        seen.set(id, {
+          id,
+          title: data.title,
+          ownerId: data.ownerId,
+          createdAt,
+          updatedAt,
+          collaborators: data.collaborators ?? [],
+        });
+      }
     });
 
-    const merged = Array.from(seen.values()).sort(
-      (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
-    );
-    listener(merged);
+    if (hasChanges) {
+      const merged = Array.from(seen.values()).sort(
+        (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
+      );
+      listener(merged);
+    }
   };
 
   const ownedUnsub = onSnapshot(
     ownedQuery,
-    (snapshot) => {
-      const docs: FirestoreSpreadsheetDocument[] = [];
-      const ids: string[] = [];
-      snapshot.forEach((docSnapshot) => {
-        docs.push(docSnapshot.data());
-        ids.push(docSnapshot.id);
-      });
-      handleSnapshot(docs, ids);
-    },
+    handleSnapshot,
     (error) => {
       console.error("Error listening to owned spreadsheets", error);
     },
@@ -131,15 +205,7 @@ export function listenToUserSpreadsheets(
 
   const collaboratorUnsub = onSnapshot(
     collaboratorQuery,
-    (snapshot) => {
-      const docs: FirestoreSpreadsheetDocument[] = [];
-      const ids: string[] = [];
-      snapshot.forEach((docSnapshot) => {
-        docs.push(docSnapshot.data());
-        ids.push(docSnapshot.id);
-      });
-      handleSnapshot(docs, ids);
-    },
+    handleSnapshot,
     (error) => {
       console.error("Error listening to collaborator spreadsheets", error);
     },

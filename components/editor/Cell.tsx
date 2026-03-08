@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { toCellId } from "@/lib/spreadsheet/cellAddress";
 import { getDisplayValue, isFormulaCell } from "@/lib/spreadsheet/engine";
 import { useCellSelection } from "@/hooks/useCellSelection";
-import { useSpreadsheet } from "@/hooks/useSpreadsheet";
+import { useSpreadsheetStore } from "@/store/spreadsheetStore";
+import type { CellFormatting } from "@/lib/spreadsheet/types";
 
 interface CellProps {
   row: number;
@@ -17,6 +18,7 @@ interface CellProps {
   onEditDone?: () => void;
   onCellMouseDown?: (row: number, col: number, e: React.MouseEvent) => void;
   onCellMouseEnter?: (row: number, col: number) => void;
+  updateCell: (cellId: string, raw: string, formatting?: Partial<CellFormatting>) => void;
 }
 
 function formatDisplayValue(value: string | number | boolean | null): string {
@@ -25,9 +27,9 @@ function formatDisplayValue(value: string | number | boolean | null): string {
   return String(value);
 }
 
-export function Cell({ row, col, width = 100, height = 28, updatedBy, heatMap, forceEdit, onEditDone, onCellMouseDown, onCellMouseEnter }: CellProps) {
+export function Cell({ row, col, width = 100, height = 28, updatedBy, heatMap, forceEdit, onEditDone, onCellMouseDown, onCellMouseEnter, updateCell }: CellProps) {
   const cellId = toCellId({ row, col });
-  const { sheet, updateCell } = useSpreadsheet(updatedBy);
+  const sheet = useSpreadsheetStore((state) => state.sheet);
   const { isCellSelected, isActiveCell, selectCell } = useCellSelection();
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
@@ -197,7 +199,11 @@ export function Cell({ row, col, width = 100, height = 28, updatedBy, heatMap, f
           ref={inputRef}
           type="text"
           value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            setEditValue(val);
+            updateCell(cellId, val);
+          }}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           className="h-full w-full min-w-0 border-0 bg-transparent px-0 py-0 text-inherit outline-none"

@@ -10,16 +10,17 @@ import { evaluateSheet } from "@/lib/spreadsheet/evaluator";
 import { ColorPickerButton } from "./ColorPicker";
 import { ExportMenu } from "./ExportMenu";
 import { useToast } from "@/components/ui/Toast";
+import type { CellFormatting } from "@/lib/spreadsheet/types";
 
 interface ToolbarProps {
   updatedBy: string;
   documentTitle?: string;
+  updateCell: (cellId: string, raw: string, formatting?: Partial<CellFormatting>) => void;
 }
 
-export function Toolbar({ updatedBy, documentTitle }: ToolbarProps) {
+export function Toolbar({ updatedBy, documentTitle, updateCell }: ToolbarProps) {
   const { activeCell, selectionRange } = useSelectionStore();
   const { sheet, setSheet, frozenRows, frozenCols, setFrozenRows, setFrozenCols } = useSpreadsheetStore();
-  const { updateCell } = useSpreadsheet(updatedBy);
   const { undo, redo } = useKeyboardNav({ updatedBy });
   const { addToast } = useToast();
 

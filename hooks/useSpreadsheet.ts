@@ -61,6 +61,8 @@ export function useSpreadsheet(updatedByOrOptions: string | UseSpreadsheetOption
     setSyncState("syncing");
     const toWrite = new Map(pendingWritesRef.current);
     pendingWritesRef.current.clear();
+    
+    console.log("[useSpreadsheet] Flushing to backend:", Array.from(toWrite.entries()));
 
     try {
       await flushCellWrites(docId, toWrite);
@@ -109,6 +111,7 @@ export function useSpreadsheet(updatedByOrOptions: string | UseSpreadsheetOption
     const unsub = subscribeToSheet(
       docId,
       (remoteSheet: SheetData) => {
+        console.log("[useSpreadsheet] Received remote snapshot", Object.keys(remoteSheet).length, "cells");
         // LWW merge: for each remote cell, only accept if its updatedAt
         // is newer than our local pending version.
         const localSheet = useSpreadsheetStore.getState().sheet;

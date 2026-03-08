@@ -6,9 +6,10 @@ import { DocumentCard } from "./DocumentCard";
 interface DocumentGridProps {
   documents: SpreadsheetDocument[];
   onOpen: (id: string) => void;
+  currentUserId: string;
 }
 
-export function DocumentGrid({ documents, onOpen }: DocumentGridProps) {
+export function DocumentGrid({ documents, onOpen, currentUserId }: DocumentGridProps) {
   if (documents.length === 0) {
     return (
       <div className="rounded-2xl border-2 border-dashed border-border-subtle bg-surface-1/50 px-12 py-16">
@@ -50,6 +51,7 @@ export function DocumentGrid({ documents, onOpen }: DocumentGridProps) {
           document={doc}
           onOpen={onOpen}
           index={index}
+          currentUserId={currentUserId}
         />
       ))}
     </div>

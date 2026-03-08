@@ -155,13 +155,8 @@ type EvalResult = CellValue | number[];
 export function evaluateNode(
   node: AstNode,
   sheet: SheetData,
-  currentCellId: string,
-  visited: Set<string>
+  currentCellId: string
 ): EvalResult {
-  if (visited.has(currentCellId)) {
-    return ERROR_CIRC;
-  }
-
   switch (node.type) {
     case "number":
       return node.value;
@@ -193,8 +188,8 @@ export function evaluateNode(
     }
 
     case "binary": {
-      const left = evaluateNode(node.left, sheet, currentCellId, visited);
-      const right = evaluateNode(node.right, sheet, currentCellId, visited);
+      const left = evaluateNode(node.left, sheet, currentCellId);
+      const right = evaluateNode(node.right, sheet, currentCellId);
 
       if (isErrorResult(left) || isErrorResult(right)) {
         return isErrorResult(left) ? left : right;
@@ -237,7 +232,7 @@ export function evaluateNode(
 
     case "function": {
       const args = node.args.map((a) =>
-        evaluateNode(a, sheet, currentCellId, visited)
+        evaluateNode(a, sheet, currentCellId)
       );
 
       if (args.some(isErrorResult)) {
@@ -463,7 +458,6 @@ export function evaluateSheet(sheet: SheetData): SheetData {
   }
 
   const result: SheetData = {};
-  const visited = new Set<string>();
 
   for (const cellId of order) {
     const data = sheet[cellId];
@@ -472,9 +466,7 @@ export function evaluateSheet(sheet: SheetData): SheetData {
     if (data.formula) {
       try {
         const ast = parseFormula(data.formula);
-        visited.add(cellId);
-        const computed = evaluateNode(ast, result, cellId, visited);
-        visited.delete(cellId);
+        const computed = evaluateNode(ast, result, cellId);
         const cellValue: CellValue = Array.isArray(computed)
           ? ERROR_VALUE
           : (computed ?? null);

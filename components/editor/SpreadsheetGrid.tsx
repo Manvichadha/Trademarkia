@@ -32,6 +32,7 @@ interface SpreadsheetGridProps {
   onRowResize?: (row: number, height: number) => void;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
   presenceOverlay?: React.ReactNode;
+  updateCell: (cellId: string, raw: string, formatting?: Partial<import("@/lib/spreadsheet/types").CellFormatting>) => void;
 }
 
 
@@ -48,6 +49,7 @@ export function SpreadsheetGrid({
   onColumnResize,
   onRowResize,
   presenceOverlay,
+  updateCell,
 }: SpreadsheetGridProps) {
   const { selectCell, selectRange } = useCellSelection();
   const { activeCell } = useSelectionStore();
@@ -261,6 +263,7 @@ export function SpreadsheetGrid({
                       height={rowH}
                       heatMap={heatMap}
                       updatedBy={updatedBy}
+                      updateCell={updateCell}
                       forceEdit={editingCellId === toCellId({ row, col })}
                       onEditDone={() => setEditingCellId(null)}
                       onCellMouseDown={handleCellMouseDown}

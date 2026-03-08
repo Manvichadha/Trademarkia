@@ -6,9 +6,11 @@ import { useSpreadsheetStore } from "@/store/spreadsheetStore";
 import { useSpreadsheet } from "@/hooks/useSpreadsheet";
 import { toCellId } from "@/lib/spreadsheet/cellAddress";
 import { getFormulaTokens, type TokenType } from "@/lib/spreadsheet/parser";
+import type { CellFormatting } from "@/lib/spreadsheet/types";
 
 interface FormulaBarProps {
   updatedBy: string;
+  updateCell: (cellId: string, raw: string, formatting?: Partial<CellFormatting>) => void;
 }
 
 const TOKEN_COLORS: Record<TokenType, string> = {
@@ -24,10 +26,9 @@ const TOKEN_COLORS: Record<TokenType, string> = {
   EOF: "",
 };
 
-export function FormulaBar({ updatedBy }: FormulaBarProps) {
+export function FormulaBar({ updatedBy, updateCell }: FormulaBarProps) {
   const { activeCell } = useSelectionStore();
   const { sheet } = useSpreadsheetStore();
-  const { updateCell } = useSpreadsheet(updatedBy);
 
   const cellId = activeCell ? toCellId(activeCell) : null;
   const cell = cellId ? sheet[cellId] : null;

@@ -44,46 +44,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-bg-base">
-      {/* Sidebar */}
-      <aside className="hidden w-72 flex-col border-r border-border-subtle bg-surface-1 px-6 py-8 shadow-sm md:flex">
-        <div className="mb-10 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 text-lg font-bold text-primary">
-            Sh
-          </div>
-          <div>
-            <div className="text-lg font-bold text-text-primary">Sheet</div>
-            <div className="text-sm text-text-muted">Workspace</div>
-          </div>
-        </div>
-        <nav className="space-y-2 text-base">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between rounded-xl bg-primary/12 px-4 py-3 font-semibold text-primary"
-          >
-            <span>Dashboard</span>
-          </button>
-          <button
-            type="button"
-            className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-text-secondary hover:bg-surface-2"
-          >
-            <span>Sheets</span>
-          </button>
-          <button
-            type="button"
-            className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-text-secondary hover:bg-surface-2"
-          >
-            <span>Templates</span>
-          </button>
-        </nav>
-        <div className="mt-auto pt-8 text-sm text-text-muted">
-          Designed for focused collaboration.
-        </div>
-      </aside>
-
-      {/* Main area */}
-      <div className="flex flex-1 flex-col overflow-auto px-6 py-8 md:px-10">
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-6">
+    <>
+      <header className="mb-8 flex flex-wrap items-center justify-between gap-6">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">
               Dashboard
@@ -129,10 +91,10 @@ export default function DashboardPage() {
         </header>
 
         {/* Summary stat cards */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-border-subtle bg-surface-1 px-6 py-5 shadow-sm">
+        <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="group rounded-2xl border border-border-subtle bg-surface-1/40 backdrop-blur-sm px-6 py-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-md cursor-default">
             <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/15 text-2xl font-bold text-primary">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-2xl font-bold text-primary transition-colors group-hover:bg-primary/20">
                 {documents.length}
               </div>
               <div>
@@ -141,10 +103,10 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-border-subtle bg-surface-1 px-6 py-5 shadow-sm">
+          <div className="group rounded-2xl border border-border-subtle bg-surface-1/40 backdrop-blur-sm px-6 py-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent-success/30 hover:shadow-md cursor-default">
             <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-accent-success/15 text-2xl font-bold text-accent-success">
-                ●
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-border-subtle bg-surface-1 text-accent-success transition-all group-hover:bg-accent-success/10 group-hover:border-accent-success/30">
+                <div className="h-3 w-3 rounded-full bg-accent-success shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse" />
               </div>
               <div>
                 <div className="text-sm font-medium text-text-muted">Status</div>
@@ -152,21 +114,29 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-border-subtle bg-surface-1 px-6 py-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-accent-warning/15 text-2xl font-bold text-accent-warning">
-                +
+          <NewDocumentButton 
+            customTrigger={
+              <div className="group h-full rounded-2xl border border-border-subtle bg-surface-1/40 backdrop-blur-sm px-6 py-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent-warning/40 hover:shadow-md hover:bg-surface-1">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-border-subtle bg-surface-1 text-text-secondary transition-colors group-hover:bg-accent-warning/10 group-hover:border-accent-warning/30 group-hover:text-accent-warning">
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-text-muted group-hover:text-accent-warning transition-colors">Quick action</div>
+                    <div className="text-xl font-bold text-text-primary">New sheet</div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="text-sm font-medium text-text-muted">Quick action</div>
-                <div className="text-xl font-bold text-text-primary">New sheet</div>
-              </div>
-            </div>
-          </div>
-          <div className="rounded-2xl border border-border-subtle bg-surface-1 px-6 py-5 shadow-sm">
+            }
+          />
+          <div className="group rounded-2xl border border-border-subtle bg-surface-1/40 backdrop-blur-sm px-6 py-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-secondary/30 hover:shadow-md cursor-default">
             <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-secondary/15 text-2xl font-bold text-secondary">
-                ⚡
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-border-subtle bg-surface-1 text-text-secondary transition-colors group-hover:bg-secondary/10 group-hover:border-secondary/30 group-hover:text-secondary">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                </svg>
               </div>
               <div>
                 <div className="text-sm font-medium text-text-muted">Real-time</div>
@@ -186,9 +156,8 @@ export default function DashboardPage() {
           <NewDocumentButton />
         </div>
 
-        <DocumentGrid documents={documents} onOpen={handleOpen} />
-      </div>
-    </div>
+      <DocumentGrid documents={documents} onOpen={handleOpen} currentUserId={user.uid} />
+    </>
   );
 }
 

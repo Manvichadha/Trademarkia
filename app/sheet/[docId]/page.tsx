@@ -17,7 +17,9 @@ import { SearchOverlay } from "@/components/editor/SearchOverlay";
 import { HeatMapToggle } from "@/components/editor/HeatMapToggle";
 import { EditableTitle } from "@/components/editor/EditableTitle";
 import { KeyboardShortcutsModal } from "@/components/editor/KeyboardShortcutsModal";
+import { ShareModal } from "@/components/editor/ShareModal";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { Button } from "@/components/ui/Button";
 
 const DEFAULT_COL_WIDTH = 100;
 const DEFAULT_ROW_HEIGHT = 28;
@@ -44,9 +46,10 @@ export default function SheetPage() {
   const [heatMapActive, setHeatMapActive] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Firestore sync
-  const { syncState, offlineQueueCount } = useSpreadsheet(
+  const { syncState, offlineQueueCount, updateCell } = useSpreadsheet(
     user
       ? { docId: docId ?? "__local__", updatedBy: user.uid }
       : "__local__"
@@ -107,6 +110,16 @@ export default function SheetPage() {
           {/* Heat map toggle */}
           <HeatMapToggle active={heatMapActive} onToggle={() => setHeatMapActive((v) => !v)} />
 
+          {/* Share Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShareOpen(true)}
+            className="hidden sm:flex"
+          >
+            Share
+          </Button>
+
           {/* Presence avatars */}
           <PresenceAvatars docId={docId} currentUid={user.uid} />
 
@@ -139,17 +152,18 @@ export default function SheetPage() {
 
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b border-border-subtle bg-surface-2 px-4 py-2">
-        <Toolbar updatedBy={user.uid} documentTitle="spreadsheet" />
+        <Toolbar updatedBy={user.uid} documentTitle="spreadsheet" updateCell={updateCell} />
       </div>
 
       {/* Formula Bar */}
-      <FormulaBar updatedBy={user.uid} />
+      <FormulaBar updatedBy={user.uid} updateCell={updateCell} />
 
       {/* Main Grid Area with optional activity sidebar */}
       <main className="relative flex-1 overflow-hidden p-4">
         <CellContextMenu updatedBy={user.uid}>
           <SpreadsheetGrid
             updatedBy={user.uid}
+            updateCell={updateCell}
             heatMap={heatMapActive}
             getColumnWidth={getColumnWidth}
             getRowHeight={getRowHeight}
@@ -182,6 +196,13 @@ export default function SheetPage() {
             onClose={() => setShortcutsOpen(false)}
           />
         )}
+
+        {/* Share modal */}
+        <ShareModal
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          docId={docId}
+        />
       </main>
     </div>
     </ErrorBoundary>

@@ -336,6 +336,11 @@ export function getFormulaTokens(formula: string): { type: TokenType; value: str
   if (!trimmed.startsWith("=")) {
     return [];
   }
-  const tokens = tokenize(trimmed);
-  return tokens.filter((t) => t.type !== "EOF");
+  try {
+    const tokens = tokenize(trimmed);
+    return tokens.filter((t) => t.type !== "EOF");
+  } catch (e) {
+    // If the formula is currently invalid/incomplete, we just return empty tokens
+    return [];
+  }
 }

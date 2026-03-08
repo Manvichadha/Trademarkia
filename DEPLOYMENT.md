@@ -476,3 +476,15 @@ Your deployment is successful when:
 ---
 
 **Congratulations! Your spreadsheet is live! 🚀**
+
+---
+
+## 🧠 Design Decisions & Assignment Justification
+
+**1. Formula Engine Depth**
+The assignment requests justification for "how deep the parser goes". I opted to build a full custom Recursive Descent Parser with an Abstract Syntax Tree (AST) and a Topological Sorter (`lib/spreadsheet/parser.ts` & `evaluator.ts`). 
+* **Depth implemented:** It supports ranges (`A1:B5`), basic arithmetic (`+`, `-`, `*`, `/`), comparisons (`>`, `<`), and 20+ core functions (`SUM`, `AVERAGE`, `IF`, `CONCATENATE`, etc.).
+* **Justification:** While a simple Regex or `eval()` could have satisfied `=SUM` and basic arithmetic, `eval()` is a massive security risk in web apps. A custom AST parser ensures code execution is impossible, providing a secure, sandboxed evaluation environment. The topological sort ensures that formulas can reference other formulas without breaking, safely catching and labeling true circular dependencies (`#CIRC!`) without infinite computation loops. This depth is the minimum threshold for a "production-ready skeleton" that can actually be safely scaled later.
+
+**2. Content Sync & LWW Resolution**
+For offline/online state contention, we use a custom Last-Write-Wins implementation driven by per-cell `updatedAt` timestamps in Firestore. Local pending writes are tracked in memory, and remote `onSnapshot` data is only accepted if its timestamp strongly beats the local uncommitted edit. This prevents UI jank when typing quickly while saving occurs asynchronously in the background.
