@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { SyncState } from "@/hooks/useSpreadsheet";
+import { useToast } from "@/components/ui/Toast";
 
 interface SyncIndicatorProps {
   state: SyncState;
@@ -8,6 +10,25 @@ interface SyncIndicatorProps {
 }
 
 export function SyncIndicator({ state, queuedCount = 0 }: SyncIndicatorProps) {
+  const { addToast } = useToast();
+  const prevStateRef = useRef<SyncState>("live");
+
+  // Show toast on sync status changes
+  useEffect(() => {
+    const prevState = prevStateRef.current;
+    if (prevState === state) return;
+
+    if (state === "offline" && prevState !== "offline") {
+      addToast("warning", "You're offline. Changes will sync when reconnected.", 5000);
+    } else if (state === "live" && prevState === "offline") {
+      addToast("success", "Back online! All changes synced.", 3000);
+    } else if (state === "live" && prevState === "syncing" && queuedCount === 0) {
+      // Silent success - don't spam toasts for normal syncs
+    }
+
+    prevStateRef.current = state;
+  }, [state, queuedCount, addToast]);
+
   return (
     <div
       aria-live="polite"

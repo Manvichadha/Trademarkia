@@ -4,11 +4,13 @@ import { useCallback } from "react";
 import { useSelectionStore } from "@/store/selectionStore";
 import { useSpreadsheetStore } from "@/store/spreadsheetStore";
 import { useSpreadsheet } from "@/hooks/useSpreadsheet";
+import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { toCellId, parseCellId } from "@/lib/spreadsheet/cellAddress";
 import { evaluateSheet } from "@/lib/spreadsheet/evaluator";
 import { ColorPickerButton } from "./ColorPicker";
 import { ExportMenu } from "./ExportMenu";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { useToast } from "@/components/ui/Toast";
 
 interface ToolbarProps {
   updatedBy: string;
@@ -17,8 +19,10 @@ interface ToolbarProps {
 
 export function Toolbar({ updatedBy, documentTitle }: ToolbarProps) {
   const { activeCell, selectionRange } = useSelectionStore();
-  const { sheet, setSheet } = useSpreadsheetStore();
+  const { sheet, setSheet, frozenRows, frozenCols, setFrozenRows, setFrozenCols } = useSpreadsheetStore();
   const { updateCell } = useSpreadsheet(updatedBy);
+  const { undo, redo } = useKeyboardNav({ updatedBy });
+  const { addToast } = useToast();
 
   const cellId = activeCell ? toCellId(activeCell) : null;
   const cell = cellId ? sheet[cellId] : null;
@@ -84,6 +88,27 @@ export function Toolbar({ updatedBy, documentTitle }: ToolbarProps) {
     });
   }, [applyToSelection]);
 
+  // Freeze panes
+  const toggleFreezeRows = useCallback(() => {
+    const newFrozen = frozenRows === 0 ? 1 : 0;
+    setFrozenRows(newFrozen);
+    addToast(
+      "info",
+      newFrozen ? "Frozen top row" : "Unfroze top row",
+      2000
+    );
+  }, [frozenRows, setFrozenRows, addToast]);
+
+  const toggleFreezeCols = useCallback(() => {
+    const newFrozen = frozenCols === 0 ? 1 : 0;
+    setFrozenCols(newFrozen);
+    addToast(
+      "info",
+      newFrozen ? "Frozen first column" : "Unfroze first column",
+      2000
+    );
+  }, [frozenCols, setFrozenCols, addToast]);
+
   // Row operations
   const insertRowAbove = useCallback(() => {
     if (!activeCell) return;
@@ -99,6 +124,52 @@ export function Toolbar({ updatedBy, documentTitle }: ToolbarProps) {
         } else {
           newSheet[id] = data;
         }
+      } catch {
+        // skip invalid
+      }
+    }
+
+    setSheet(evaluateSheet(newSheet));
+  }, [activeCell, sheet, setSheet]);
+
+  // Column operations
+  const insertColLeft = useCallback(() => {
+    if (!activeCell) return;
+    const currentCol = activeCell.col;
+    const newSheet: typeof sheet = {};
+
+    for (const [id, data] of Object.entries(sheet)) {
+      try {
+        const coord = parseCellId(id);
+        if (coord.col >= currentCol) {
+          // Shift right
+          newSheet[toCellId({ row: coord.row, col: coord.col + 1 })] = data;
+        } else {
+          newSheet[id] = data;
+        }
+      } catch {
+        // skip invalid
+      }
+    }
+
+    setSheet(evaluateSheet(newSheet));
+  }, [activeCell, sheet, setSheet]);
+
+  const deleteCol = useCallback(() => {
+    if (!activeCell) return;
+    const currentCol = activeCell.col;
+    const newSheet: typeof sheet = {};
+
+    for (const [id, data] of Object.entries(sheet)) {
+      try {
+        const coord = parseCellId(id);
+        if (coord.col < currentCol) {
+          newSheet[id] = data;
+        } else if (coord.col > currentCol) {
+          // Shift left
+          newSheet[toCellId({ row: coord.row, col: coord.col - 1 })] = data;
+        }
+        // coord.col === currentCol → deleted (skip)
       } catch {
         // skip invalid
       }
@@ -297,6 +368,84 @@ export function Toolbar({ updatedBy, documentTitle }: ToolbarProps) {
 
       <div className="mx-2 h-6 w-px bg-border-subtle" />
 
+      {/* Column operations */}
+      <div className="flex items-center gap-1">
+        <Tooltip content="Insert column left">
+          <button
+            type="button"
+            onClick={insertColLeft}
+            className="rounded-md px-2 py-1.5 text-sm transition hover:bg-surface-3"
+            aria-label="Insert column left"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v16m0 0h16M4 20l4-4m-4 4l4 4" />
+            </svg>
+          </button>
+        </Tooltip>
+        
+        <Tooltip content="Delete column">
+          <button
+            type="button"
+            onClick={deleteCol}
+            className="rounded-md px-2 py-1.5 text-sm text-danger transition hover:bg-danger/10"
+            aria-label="Delete column"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 4v16m0 0H4m16 0l-4-4m4 4l-4-4" />
+            </svg>
+          </button>
+        </Tooltip>
+      </div>
+
+      <div className="mx-2 h-6 w-px bg-border-subtle" />
+
+      {/* Undo/Redo */}
+      <div className="flex items-center gap-1">
+        <Tooltip content="Undo (Ctrl+Z)">
+          <button
+            type="button"
+            onClick={undo}
+            className="rounded-md px-2 py-1.5 text-sm transition hover:bg-surface-3 disabled:opacity-40"
+            aria-label="Undo"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+            </svg>
+          </button>
+        </Tooltip>
+        
+        <Tooltip content="Redo (Ctrl+Y)">
+          <button
+            type="button"
+            onClick={redo}
+            className="rounded-md px-2 py-1.5 text-sm transition hover:bg-surface-3 disabled:opacity-40"
+            aria-label="Redo"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 9l6-6m0 0l-6 6m6-6H9a6 6 0 000 12h3" />
+            </svg>
+          </button>
+        </Tooltip>
+      </div>
+
+      <div className="mx-2 h-6 w-px bg-border-subtle" />
+
+      {/* Search in sheet */}
+      <Tooltip content="Search (Ctrl+F)">
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("sheet:open-search"))}
+          className="rounded-md px-2 py-1.5 text-sm transition hover:bg-surface-3"
+          aria-label="Search in sheet"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+        </button>
+      </Tooltip>
+
+      <div className="mx-2 h-6 w-px bg-border-subtle" />
+
       {/* Clear formatting */}
       <Tooltip content="Clear formatting">
         <button
@@ -310,6 +459,41 @@ export function Toolbar({ updatedBy, documentTitle }: ToolbarProps) {
           </svg>
         </button>
       </Tooltip>
+
+      <div className="mx-2 h-6 w-px bg-border-subtle" />
+
+      {/* Freeze panes */}
+      <div className="flex items-center gap-1">
+        <Tooltip content={frozenRows > 0 ? "Unfreeze top row" : "Freeze top row"}>
+          <button
+            type="button"
+            onClick={toggleFreezeRows}
+            className={`rounded-md px-2 py-1.5 text-sm transition ${
+              frozenRows > 0 ? "bg-primary/20 text-primary" : "hover:bg-surface-3"
+            }`}
+            aria-label="Freeze top row"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15h18M3 9h18M3 3v18" />
+            </svg>
+          </button>
+        </Tooltip>
+        
+        <Tooltip content={frozenCols > 0 ? "Unfreeze first column" : "Freeze first column"}>
+          <button
+            type="button"
+            onClick={toggleFreezeCols}
+            className={`rounded-md px-2 py-1.5 text-sm transition ${
+              frozenCols > 0 ? "bg-primary/20 text-primary" : "hover:bg-surface-3"
+            }`}
+            aria-label="Freeze first column"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v18m6-18v18M3 3h18" />
+            </svg>
+          </button>
+        </Tooltip>
+      </div>
 
       {/* Export menu - positioned at the end */}
       <div className="ml-auto">

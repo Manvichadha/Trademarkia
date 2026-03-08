@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useSpreadsheet } from "@/hooks/useSpreadsheet";
@@ -16,6 +16,9 @@ import { saveMetadata } from "@/lib/firebase/cells";
 import { SearchOverlay } from "@/components/editor/SearchOverlay";
 import { HeatMapToggle } from "@/components/editor/HeatMapToggle";
 import { EditableTitle } from "@/components/editor/EditableTitle";
+import { KeyboardShortcutsModal } from "@/components/editor/KeyboardShortcutsModal";
+import { ActivityFeed } from "@/components/editor/ActivityFeed";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 const DEFAULT_COL_WIDTH = 100;
 const DEFAULT_ROW_HEIGHT = 28;
@@ -41,6 +44,8 @@ export default function SheetPage() {
   const gridScrollRef = useRef<HTMLDivElement | null>(null);
   const [heatMapActive, setHeatMapActive] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [activityFeedOpen, setActivityFeedOpen] = useState(false);
 
   // Firestore sync
   const { syncState, offlineQueueCount } = useSpreadsheet(
@@ -50,9 +55,16 @@ export default function SheetPage() {
   );
 
   // Listen for Ctrl+F from keyboard nav
-  if (typeof window !== "undefined") {
-    window.addEventListener("sheet:open-search", () => setSearchOpen(true), { once: false });
-  }
+  useEffect(() => {
+    const searchHandler = () => setSearchOpen(true);
+    const shortcutsHandler = () => setShortcutsOpen(true);
+    window.addEventListener("sheet:open-search", searchHandler);
+    window.addEventListener("sheet:open-shortcuts", shortcutsHandler);
+    return () => {
+      window.removeEventListener("sheet:open-search", searchHandler);
+      window.removeEventListener("sheet:open-shortcuts", shortcutsHandler);
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -70,9 +82,10 @@ export default function SheetPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-bg-base overflow-hidden">
-      {/* Header */}
-      <header className="flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface-1 px-6 py-3">
+    <ErrorBoundary>
+      <div className="flex h-screen flex-col bg-bg-base overflow-hidden">
+        {/* Header */}
+        <header className="flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface-1 px-6 py-3">
         <div className="flex items-center gap-4">
           <button
             type="button"
@@ -126,13 +139,30 @@ export default function SheetPage() {
         </div>
       </header>
 
-      {/* Toolbar */}
-      <Toolbar updatedBy={user.uid} documentTitle="spreadsheet" />
+      {/* Toolbar with activity toggle */}
+      <div className="flex items-center justify-between border-b border-border-subtle bg-surface-2 px-4 py-2">
+        <Toolbar updatedBy={user.uid} documentTitle="spreadsheet" />
+        
+        {/* Activity feed toggle */}
+        <button
+          type="button"
+          onClick={() => setActivityFeedOpen(!activityFeedOpen)}
+          className={`ml-4 flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+            activityFeedOpen ? "bg-primary/20 text-primary" : "hover:bg-surface-3"
+          }`}
+          aria-label="Toggle activity feed"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="hidden lg:inline">Activity</span>
+        </button>
+      </div>
 
       {/* Formula Bar */}
       <FormulaBar updatedBy={user.uid} />
 
-      {/* Main Grid Area */}
+      {/* Main Grid Area with optional activity sidebar */}
       <main className="relative flex-1 overflow-hidden p-4">
         <CellContextMenu updatedBy={user.uid}>
           <SpreadsheetGrid
@@ -155,12 +185,34 @@ export default function SheetPage() {
             }
           />
         </CellContextMenu>
-      </main>
 
-      {/* Search overlay */}
-      {searchOpen && (
-        <SearchOverlay onClose={() => setSearchOpen(false)} />
-      )}
+        {/* Search overlay - positioned relative to main container */}
+        {searchOpen && (
+          <div className="absolute inset-0 pointer-events-none">
+            <SearchOverlay onClose={() => setSearchOpen(false)} />
+          </div>
+        )}
+
+        {/* Keyboard shortcuts modal */}
+        {shortcutsOpen && (
+          <KeyboardShortcutsModal
+            open={shortcutsOpen}
+            onClose={() => setShortcutsOpen(false)}
+          />
+        )}
+
+        {/* Activity feed sidebar */}
+        {activityFeedOpen && (
+          <div className="absolute right-0 top-0 h-full w-80 transform transition-transform duration-300 ease-in-out shadow-2xl">
+            <ActivityFeed
+              currentUid={user.uid}
+              isOpen={activityFeedOpen}
+              onClose={() => setActivityFeedOpen(false)}
+            />
+          </div>
+        )}
+      </main>
     </div>
+    </ErrorBoundary>
   );
 }

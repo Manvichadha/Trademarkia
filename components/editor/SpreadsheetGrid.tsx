@@ -10,6 +10,7 @@ import { useCellSelection } from "@/hooks/useCellSelection";
 import { useResize } from "@/hooks/useResize";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { useSelectionStore } from "@/store/selectionStore";
+import { useSpreadsheetStore } from "@/store/spreadsheetStore";
 
 const ROWS = 100;
 const COLS = 26;
@@ -54,6 +55,7 @@ export function SpreadsheetGrid({
 }: SpreadsheetGridProps) {
   const { selectCell, selectRange } = useCellSelection();
   const { activeCell } = useSelectionStore();
+  const { frozenRows, frozenCols } = useSpreadsheetStore();
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ row: number; col: number } | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -160,7 +162,7 @@ export function SpreadsheetGrid({
   return (
     <div
       className="relative flex flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-1 select-none"
-      style={{ height: "calc(100vh - 180px)", minHeight: "400px" }}
+      style={{ height: "calc(100vh - 200px)", minHeight: "400px" }}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
@@ -229,13 +231,30 @@ export function SpreadsheetGrid({
             />
           </div>
 
-          {/* Data rows */}
+          {/* Data rows with freeze pane support */}
           {Array.from({ length: ROWS }, (_, row) => {
             const rowH = getRowHeight(row);
+            const isFrozen = row < frozenRows;
             return (
-              <div key={row} className="flex" style={{ height: rowH }}>
+              <div
+                key={row}
+                className="flex"
+                style={{
+                  height: rowH,
+                  position: isFrozen ? 'sticky' : 'relative',
+                  top: isFrozen ? `${DEFAULT_ROW_HEIGHT + Array.from({ length: row }, (_, r) => getRowHeight(r)).reduce((a, b) => a + b, 0)}px` : 'auto',
+                  zIndex: isFrozen ? 20 : 1,
+                }}
+              >
                 {/* Sticky row header */}
-                <div className="sticky left-0 z-10 shrink-0">
+                <div
+                  className="shrink-0"
+                  style={{
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: isFrozen ? 30 : 10,
+                  }}
+                >
                   <RowHeader
                     row={row}
                     height={rowH}
@@ -243,21 +262,30 @@ export function SpreadsheetGrid({
                     isResizing={resizingRow === row}
                   />
                 </div>
-                {Array.from({ length: COLS }, (_, col) => (
-                  <Cell
-                    key={`${row}-${col}`}
-                    row={row}
-                    col={col}
-                    width={getColumnWidth(col)}
-                    height={rowH}
-                    heatMap={heatMap}
-                    updatedBy={updatedBy}
-                    forceEdit={editingCellId === toCellId({ row, col })}
-                    onEditDone={() => setEditingCellId(null)}
-                    onCellMouseDown={handleCellMouseDown}
-                    onCellMouseEnter={handleCellMouseEnter}
-                  />
-                ))}
+                {Array.from({ length: COLS }, (_, col) => {
+                  const isColFrozen = col < frozenCols;
+                  return (
+                    <Cell
+                      key={`${row}-${col}`}
+                      row={row}
+                      col={col}
+                      width={getColumnWidth(col)}
+                      height={rowH}
+                      heatMap={heatMap}
+                      updatedBy={updatedBy}
+                      forceEdit={editingCellId === toCellId({ row, col })}
+                      onEditDone={() => setEditingCellId(null)}
+                      onCellMouseDown={handleCellMouseDown}
+                      onCellMouseEnter={handleCellMouseEnter}
+                      // @ts-ignore - inline style for freeze pane
+                      style={{
+                        position: isColFrozen ? 'sticky' : 'relative',
+                        left: isColFrozen ? `${HEADER_WIDTH + Array.from({ length: col }, (_, c) => getColumnWidth(c)).reduce((a, b) => a + b, 0)}px` : 'auto',
+                        zIndex: isColFrozen ? (isFrozen ? 40 : 30) : (isFrozen ? 20 : 1),
+                      }}
+                    />
+                  );
+                })}
               </div>
             );
           })}

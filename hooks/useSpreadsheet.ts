@@ -37,7 +37,7 @@ export function useSpreadsheet(updatedByOrOptions: string | UseSpreadsheetOption
   const updatedBy = isSync ? updatedByOrOptions.updatedBy : updatedByOrOptions;
   const docId = isSync ? updatedByOrOptions.docId : null;
 
-  const { sheet, setCellValue, setSheet } = useSpreadsheetStore();
+  const { sheet, setCellValue, setSheet, frozenRows, frozenCols, setFrozenRows, setFrozenCols } = useSpreadsheetStore();
 
   const [syncState, setSyncState] = useState<SyncState>("live");
   const pendingWritesRef = useRef<Map<string, CellData>>(new Map());

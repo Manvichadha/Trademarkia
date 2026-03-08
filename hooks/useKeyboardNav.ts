@@ -304,6 +304,11 @@ export function useKeyboardNav({
             e.preventDefault();
             window.dispatchEvent(new CustomEvent("sheet:open-search"));
             return;
+          case "/":
+            // Ctrl+/ or Cmd+/ opens keyboard shortcuts
+            e.preventDefault();
+            window.dispatchEvent(new CustomEvent("sheet:open-shortcuts"));
+            return;
         }
       }
 

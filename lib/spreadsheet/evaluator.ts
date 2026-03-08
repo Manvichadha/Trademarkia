@@ -287,6 +287,126 @@ export function evaluateNode(
             (typeof cond === "string" && cond.length > 0);
           return condBool ? tVal : fVal;
         }
+        case "CONCATENATE": {
+          return args.map((a) => (Array.isArray(a) ? a.join("") : String(a ?? ""))).join("");
+        }
+        case "TODAY": {
+          return new Date().toLocaleDateString("en-US");
+        }
+        case "NOW": {
+          return new Date().toLocaleString("en-US");
+        }
+        case "LEN": {
+          if (args.length !== 1) return ERROR_VALUE;
+          const val = args[0];
+          if (Array.isArray(val)) return ERROR_VALUE;
+          return String(val ?? "").length;
+        }
+        case "TRIM": {
+          if (args.length !== 1) return ERROR_VALUE;
+          const val = args[0];
+          if (Array.isArray(val)) return ERROR_VALUE;
+          return String(val ?? "").trim();
+        }
+        case "UPPER": {
+          if (args.length !== 1) return ERROR_VALUE;
+          const val = args[0];
+          if (Array.isArray(val)) return ERROR_VALUE;
+          return String(val ?? "").toUpperCase();
+        }
+        case "LOWER": {
+          if (args.length !== 1) return ERROR_VALUE;
+          const val = args[0];
+          if (Array.isArray(val)) return ERROR_VALUE;
+          return String(val ?? "").toLowerCase();
+        }
+        case "PROPER": {
+          if (args.length !== 1) return ERROR_VALUE;
+          const val = args[0];
+          if (Array.isArray(val)) return ERROR_VALUE;
+          return String(val ?? "").replace(/\b\w/g, (c) => c.toUpperCase());
+        }
+        case "LEFT": {
+          if (args.length < 2) return ERROR_VALUE;
+          const arg0 = args[0];
+          if (Array.isArray(arg0)) return ERROR_VALUE;
+          const text = String(arg0 ?? "");
+          const arg1 = args[1];
+          if (Array.isArray(arg1)) return ERROR_VALUE;
+          const num = toNumber(arg1) ?? 1;
+          return text.slice(0, num);
+        }
+        case "RIGHT": {
+          if (args.length < 2) return ERROR_VALUE;
+          const arg0 = args[0];
+          if (Array.isArray(arg0)) return ERROR_VALUE;
+          const text = String(arg0 ?? "");
+          const arg1 = args[1];
+          if (Array.isArray(arg1)) return ERROR_VALUE;
+          const num = toNumber(arg1) ?? 1;
+          return text.slice(-num);
+        }
+        case "MID": {
+          if (args.length < 3) return ERROR_VALUE;
+          const arg0 = args[0];
+          if (Array.isArray(arg0)) return ERROR_VALUE;
+          const text = String(arg0 ?? "");
+          const arg1 = args[1];
+          if (Array.isArray(arg1)) return ERROR_VALUE;
+          const start = (toNumber(arg1) ?? 1) - 1;
+          const arg2 = args[2];
+          if (Array.isArray(arg2)) return ERROR_VALUE;
+          const num = toNumber(arg2) ?? text.length;
+          return text.slice(start, start + num);
+        }
+        case "ROUND": {
+          if (args.length < 2) return ERROR_VALUE;
+          const arg0 = args[0];
+          if (Array.isArray(arg0)) return ERROR_VALUE;
+          const num = toNumber(arg0);
+          const arg1 = args[1];
+          if (Array.isArray(arg1)) return ERROR_VALUE;
+          const decimals = toNumber(arg1) ?? 0;
+          if (num === null || decimals === null) return ERROR_VALUE;
+          const factor = Math.pow(10, decimals);
+          return Math.round(num * factor) / factor;
+        }
+        case "ABS": {
+          if (args.length !== 1) return ERROR_VALUE;
+          const arg0 = args[0];
+          if (Array.isArray(arg0)) return ERROR_VALUE;
+          const num = toNumber(arg0);
+          if (num === null) return ERROR_VALUE;
+          return Math.abs(num);
+        }
+        case "SQRT": {
+          if (args.length !== 1) return ERROR_VALUE;
+          const arg0 = args[0];
+          if (Array.isArray(arg0)) return ERROR_VALUE;
+          const num = toNumber(arg0);
+          if (num === null || num < 0) return ERROR_VALUE;
+          return Math.sqrt(num);
+        }
+        case "POWER": {
+          if (args.length !== 2) return ERROR_VALUE;
+          const arg0 = args[0];
+          if (Array.isArray(arg0)) return ERROR_VALUE;
+          const base = toNumber(arg0);
+          const arg1 = args[1];
+          if (Array.isArray(arg1)) return ERROR_VALUE;
+          const exp = toNumber(arg1);
+          if (base === null || exp === null) return ERROR_VALUE;
+          return Math.pow(base, exp);
+        }
+        case "PI": {
+          return Math.PI;
+        }
+        case "TRUE": {
+          return true;
+        }
+        case "FALSE": {
+          return false;
+        }
         default:
           return ERROR_NAME;
       }

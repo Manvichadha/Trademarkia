@@ -18,8 +18,17 @@ export function RowHeader({
   onResizeStart,
   isResizing,
 }: RowHeaderProps) {
-  const { activeCell, selectCell } = useCellSelection();
+  const { activeCell, selectRange } = useCellSelection();
   const isActive = activeCell !== null && activeCell.row === row;
+
+  const handleClick = () => {
+    // Select entire row when clicking row header
+    if (activeCell) {
+      selectRange(activeCell.row, activeCell.col, row, 25); // COLS - 1 = 25
+    } else {
+      selectRange(0, 0, row, 25);
+    }
+  };
 
   return (
     <div
@@ -29,7 +38,7 @@ export function RowHeader({
         isActive ? "bg-primary/20 text-primary" : ""
       }`}
       style={{ minWidth: HEADER_WIDTH, width: HEADER_WIDTH, height }}
-      onClick={() => selectCell(row, 0)}
+      onClick={handleClick}
     >
       {row + 1}
       {onResizeStart && (

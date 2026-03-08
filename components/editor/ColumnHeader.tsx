@@ -15,9 +15,18 @@ interface ColumnHeaderProps {
 }
 
 export function ColumnHeader({ col, width = DEFAULT_COL_WIDTH, onResizeStart, isResizing }: ColumnHeaderProps) {
-  const { activeCell, selectCell } = useCellSelection();
+  const { activeCell, selectRange } = useCellSelection();
   const label = toCellId({ row: 0, col }).replace(/\d+/, "");
   const isActive = activeCell !== null && activeCell.col === col;
+
+  const handleClick = () => {
+    // Select entire column when clicking column header
+    if (activeCell) {
+      selectRange(activeCell.row, activeCell.col, 99, col); // ROWS - 1 = 99
+    } else {
+      selectRange(0, 0, 99, col);
+    }
+  };
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (onResizeStart && e.target === e.currentTarget) {
@@ -41,7 +50,7 @@ export function ColumnHeader({ col, width = DEFAULT_COL_WIDTH, onResizeStart, is
         isActive ? "bg-primary/20 text-primary" : ""
       }`}
       style={{ minWidth: width, maxWidth: width, minHeight: ROW_HEIGHT }}
-      onClick={() => selectCell(0, col)}
+      onClick={handleClick}
       onMouseDown={handleMouseDown}
     >
       {label}

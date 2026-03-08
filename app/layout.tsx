@@ -2,6 +2,7 @@ import { DM_Sans, JetBrains_Mono, Syne } from "next/font/google";
 import "@/styles/globals.css";
 import type { Metadata } from "next";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { ToastProvider } from "@/components/ui/Toast";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -38,7 +39,9 @@ export default function RootLayout({
       <body
         className={`${syne.variable} ${dmSans.variable} ${jetBrainsMono.variable} antialiased`}
       >
-        <AuthProvider>{children}</AuthProvider>
+        <ToastProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </ToastProvider>
       </body>
     </html>
   );
