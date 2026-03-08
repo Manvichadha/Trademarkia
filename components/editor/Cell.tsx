@@ -7,13 +7,16 @@ import { useSpreadsheetStore } from "@/store/spreadsheetStore";
 import { useCellSelection } from "@/hooks/useCellSelection";
 import { useSpreadsheet } from "@/hooks/useSpreadsheet";
 
-const COL_WIDTH = 100;
 const ROW_HEIGHT = 28;
 
 interface CellProps {
   row: number;
   col: number;
+  width?: number;
+  height?: number;
   updatedBy: string;
+  forceEdit?: boolean;
+  onEditDone?: () => void;
   onCellMouseDown?: (row: number, col: number, e: React.MouseEvent) => void;
   onCellMouseEnter?: (row: number, col: number) => void;
 }
@@ -24,7 +27,7 @@ function formatDisplayValue(value: string | number | boolean | null): string {
   return String(value);
 }
 
-export function Cell({ row, col, updatedBy, onCellMouseDown, onCellMouseEnter }: CellProps) {
+export function Cell({ row, col, width = 100, height = 28, updatedBy, forceEdit, onEditDone, onCellMouseDown, onCellMouseEnter }: CellProps) {
   const cellId = toCellId({ row, col });
   const { sheet, updateCell } = useSpreadsheet(updatedBy);
   const { isCellSelected, isActiveCell, selectCell } = useCellSelection();
@@ -74,32 +77,46 @@ export function Cell({ row, col, updatedBy, onCellMouseDown, onCellMouseEnter }:
     setTimeout(() => inputRef.current?.focus(), 0);
   }, [cell?.raw]);
 
+  // Enter edit mode when forced by keyboard nav (F2 / Enter)
+  useEffect(() => {
+    if (forceEdit && !editing) {
+      setEditValue(cell?.raw ?? "");
+      setEditing(true);
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [forceEdit, editing, cell?.raw]);
+
   const handleBlur = useCallback(() => {
     setEditing(false);
+    onEditDone?.();
     const trimmed = editValue.trim();
     if (trimmed !== (cell?.raw ?? "")) {
       updateCell(cellId, trimmed);
     }
-  }, [editValue, cell?.raw, cellId, updateCell]);
+  }, [editValue, cell?.raw, cellId, updateCell, onEditDone]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
+        e.stopPropagation();
         const trimmed = editValue.trim();
         if (trimmed !== (cell?.raw ?? "")) {
           updateCell(cellId, trimmed);
         }
         setEditing(false);
+        onEditDone?.();
       }
       if (e.key === "Escape") {
         e.preventDefault();
+        e.stopPropagation();
         setEditValue(cell?.raw ?? "");
         setEditing(false);
+        onEditDone?.();
         inputRef.current?.blur();
       }
     },
-    [editValue, cell?.raw, cellId, updateCell]
+    [editValue, cell?.raw, cellId, updateCell, onEditDone]
   );
 
   useEffect(() => {
@@ -109,9 +126,10 @@ export function Cell({ row, col, updatedBy, onCellMouseDown, onCellMouseEnter }:
   }, [editing, cell?.raw]);
 
   const style: React.CSSProperties = {
-    minWidth: COL_WIDTH,
-    maxWidth: COL_WIDTH,
-    minHeight: ROW_HEIGHT,
+    minWidth: width,
+    maxWidth: width,
+    height,
+    minHeight: height,
     ...(formatting.bold && { fontWeight: 700 }),
     ...(formatting.italic && { fontStyle: "italic" }),
     ...(formatting.color && { color: formatting.color }),

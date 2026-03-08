@@ -5,6 +5,7 @@ import { useSelectionStore } from "@/store/selectionStore";
 import { useSpreadsheetStore } from "@/store/spreadsheetStore";
 import { useSpreadsheet } from "@/hooks/useSpreadsheet";
 import { toCellId, parseCellId } from "@/lib/spreadsheet/cellAddress";
+import { evaluateSheet } from "@/lib/spreadsheet/evaluator";
 import { ColorPickerButton } from "./ColorPicker";
 import { ExportMenu } from "./ExportMenu";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -16,7 +17,7 @@ interface ToolbarProps {
 
 export function Toolbar({ updatedBy, documentTitle }: ToolbarProps) {
   const { activeCell, selectionRange } = useSelectionStore();
-  const { sheet, setCellValue } = useSpreadsheetStore();
+  const { sheet, setSheet } = useSpreadsheetStore();
   const { updateCell } = useSpreadsheet(updatedBy);
 
   const cellId = activeCell ? toCellId(activeCell) : null;
@@ -87,82 +88,69 @@ export function Toolbar({ updatedBy, documentTitle }: ToolbarProps) {
   const insertRowAbove = useCallback(() => {
     if (!activeCell) return;
     const currentRow = activeCell.row;
-    
-    // Shift all rows down from currentRow
-    const newSheet = { ...sheet };
-    
-    // Find all cells at or below currentRow and shift them down
+    const newSheet: typeof sheet = {};
+
     for (const [id, data] of Object.entries(sheet)) {
       try {
         const coord = parseCellId(id);
         if (coord.row >= currentRow) {
-          const newId = toCellId({ row: coord.row + 1, col: coord.col });
-          newSheet[newId] = data;
-          delete newSheet[id];
+          // Shift down
+          newSheet[toCellId({ row: coord.row + 1, col: coord.col })] = data;
+        } else {
+          newSheet[id] = data;
         }
       } catch {
-        // Skip invalid cell IDs
+        // skip invalid
       }
     }
-    
-    // Update the store
-    for (const [id, data] of Object.entries(newSheet)) {
-      setCellValue(id, data.raw, updatedBy, data.formatting);
-    }
-  }, [activeCell, sheet, setCellValue, updatedBy]);
+
+    setSheet(evaluateSheet(newSheet));
+  }, [activeCell, sheet, setSheet]);
 
   const insertRowBelow = useCallback(() => {
     if (!activeCell) return;
     const currentRow = activeCell.row;
-    
-    // Shift all rows down from currentRow + 1
-    const newSheet = { ...sheet };
-    
+    const newSheet: typeof sheet = {};
+
     for (const [id, data] of Object.entries(sheet)) {
       try {
         const coord = parseCellId(id);
         if (coord.row > currentRow) {
-          const newId = toCellId({ row: coord.row + 1, col: coord.col });
-          newSheet[newId] = data;
-          delete newSheet[id];
+          // Shift down
+          newSheet[toCellId({ row: coord.row + 1, col: coord.col })] = data;
+        } else {
+          newSheet[id] = data;
         }
       } catch {
-        // Skip invalid cell IDs
+        // skip invalid
       }
     }
-    
-    for (const [id, data] of Object.entries(newSheet)) {
-      setCellValue(id, data.raw, updatedBy, data.formatting);
-    }
-  }, [activeCell, sheet, setCellValue, updatedBy]);
+
+    setSheet(evaluateSheet(newSheet));
+  }, [activeCell, sheet, setSheet]);
 
   const deleteRow = useCallback(() => {
     if (!activeCell) return;
     const currentRow = activeCell.row;
-    
-    // Shift all rows up from currentRow + 1
     const newSheet: typeof sheet = {};
-    
+
     for (const [id, data] of Object.entries(sheet)) {
       try {
         const coord = parseCellId(id);
         if (coord.row < currentRow) {
           newSheet[id] = data;
         } else if (coord.row > currentRow) {
-          const newId = toCellId({ row: coord.row - 1, col: coord.col });
-          newSheet[newId] = data;
+          // Shift up
+          newSheet[toCellId({ row: coord.row - 1, col: coord.col })] = data;
         }
-        // Skip cells on currentRow (delete them)
+        // coord.row === currentRow → deleted (skip)
       } catch {
-        // Skip invalid cell IDs
+        // skip invalid
       }
     }
-    
-    // Clear and rebuild
-    for (const [id, data] of Object.entries(newSheet)) {
-      setCellValue(id, data.raw, updatedBy, data.formatting);
-    }
-  }, [activeCell, sheet, setCellValue, updatedBy]);
+
+    setSheet(evaluateSheet(newSheet));
+  }, [activeCell, sheet, setSheet]);
 
   return (
     <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle bg-surface-2 px-4 py-2">

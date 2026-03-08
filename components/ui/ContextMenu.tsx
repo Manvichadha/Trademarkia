@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 interface ContextMenuItem {
   label: string;
   icon?: ReactNode;
+  shortcut?: string;
   onClick: () => void;
   disabled?: boolean;
   divider?: boolean;
@@ -117,7 +118,10 @@ export function ContextMenu({ items, children }: ContextMenuProps) {
                     {item.icon}
                   </span>
                 )}
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.shortcut && (
+                  <span className="ml-4 font-mono text-xs text-text-muted">{item.shortcut}</span>
+                )}
               </button>
             </div>
           ))}

@@ -3,356 +3,364 @@
 import { useEffect, useCallback, useRef } from "react";
 import { useSelectionStore } from "@/store/selectionStore";
 import { useSpreadsheetStore } from "@/store/spreadsheetStore";
+import { evaluateSheet } from "@/lib/spreadsheet/evaluator";
 import { toCellId, parseCellId } from "@/lib/spreadsheet/cellAddress";
+import type { SheetData } from "@/lib/spreadsheet/types";
+import type { CellCoord } from "@/lib/spreadsheet/cellAddress";
 
 const ROWS = 100;
 const COLS = 26;
+const MAX_HISTORY = 50;
+
+interface HistoryEntry {
+  sheet: SheetData;
+  activeCell: CellCoord | null;
+}
 
 interface UseKeyboardNavOptions {
   updatedBy: string;
-  onEditStart?: () => void;
+  onEditStart?: (cellId: string) => void;
   onEditEnd?: () => void;
 }
 
-interface HistoryState {
-  sheet: ReturnType<typeof useSpreadsheetStore.getState>["sheet"];
-  activeCell: ReturnType<typeof useSelectionStore.getState>["activeCell"];
-}
+export function useKeyboardNav({
+  updatedBy,
+  onEditStart,
+  onEditEnd,
+}: UseKeyboardNavOptions) {
+  const { activeCell, selectionRange, setActiveCell, setSelectionRange } =
+    useSelectionStore();
+  const { sheet, setSheet } = useSpreadsheetStore();
 
-export function useKeyboardNav({ updatedBy, onEditStart, onEditEnd }: UseKeyboardNavOptions) {
-  const { activeCell, selectionRange, setActiveCell, setSelectionRange } = useSelectionStore();
-  const { sheet, setCellValue } = useSpreadsheetStore();
-  
-  const historyRef = useRef<HistoryState[]>([]);
+  // --- History (undo/redo) ---
+  const historyRef = useRef<HistoryEntry[]>([]);
   const historyIndexRef = useRef(-1);
-  const isEditingRef = useRef(false);
-  const copiedCellsRef = useRef<string>("");
 
-  // Save state to history
   const saveToHistory = useCallback(() => {
-    const currentState: HistoryState = {
-      sheet: { ...sheet },
-      activeCell: activeCell ? { ...activeCell } : null,
-    };
-    
-    // Remove any future history if we're not at the end
-    if (historyIndexRef.current < historyRef.current.length - 1) {
-      historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
-    }
-    
-    historyRef.current.push(currentState);
-    historyIndexRef.current = historyRef.current.length - 1;
-    
-    // Limit history to 50 states
-    if (historyRef.current.length > 50) {
+    const currentSheet = useSpreadsheetStore.getState().sheet;
+    const currentActive = useSelectionStore.getState().activeCell;
+
+    // Truncate any redo future
+    historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
+    historyRef.current.push({
+      sheet: { ...currentSheet },
+      activeCell: currentActive ? { ...currentActive } : null,
+    });
+    if (historyRef.current.length > MAX_HISTORY) {
       historyRef.current.shift();
-      historyIndexRef.current--;
     }
-  }, [sheet, activeCell]);
+    historyIndexRef.current = historyRef.current.length - 1;
+  }, []);
 
-  // Undo
   const undo = useCallback(() => {
-    if (historyIndexRef.current > 0) {
-      historyIndexRef.current--;
-      const prevState = historyRef.current[historyIndexRef.current];
-      if (prevState) {
-        // Restore sheet state
-        for (const [id, data] of Object.entries(prevState.sheet)) {
-          setCellValue(id, data.raw, updatedBy, data.formatting);
-        }
-        if (prevState.activeCell) {
-          setActiveCell(prevState.activeCell);
-        }
-      }
-    }
-  }, [setCellValue, setActiveCell, updatedBy]);
+    if (historyIndexRef.current <= 0) return;
+    historyIndexRef.current--;
+    const prev = historyRef.current[historyIndexRef.current];
+    if (!prev) return;
+    setSheet(prev.sheet);
+    if (prev.activeCell) setActiveCell(prev.activeCell);
+  }, [setSheet, setActiveCell]);
 
-  // Redo
   const redo = useCallback(() => {
-    if (historyIndexRef.current < historyRef.current.length - 1) {
-      historyIndexRef.current++;
-      const nextState = historyRef.current[historyIndexRef.current];
-      if (nextState) {
-        for (const [id, data] of Object.entries(nextState.sheet)) {
-          setCellValue(id, data.raw, updatedBy, data.formatting);
-        }
-        if (nextState.activeCell) {
-          setActiveCell(nextState.activeCell);
-        }
+    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+    historyIndexRef.current++;
+    const next = historyRef.current[historyIndexRef.current];
+    if (!next) return;
+    setSheet(next.sheet);
+    if (next.activeCell) setActiveCell(next.activeCell);
+  }, [setSheet, setActiveCell]);
+
+  // --- Navigation ---
+  const moveSelection = useCallback(
+    (deltaRow: number, deltaCol: number, extend = false) => {
+      const current = useSelectionStore.getState().activeCell;
+      if (!current) {
+        setActiveCell({ row: 0, col: 0 });
+        return;
       }
-    }
-  }, [setCellValue, setActiveCell, updatedBy]);
+      const newRow = Math.max(0, Math.min(ROWS - 1, current.row + deltaRow));
+      const newCol = Math.max(0, Math.min(COLS - 1, current.col + deltaCol));
+      if (extend) {
+        const range = useSelectionStore.getState().selectionRange;
+        setSelectionRange(range?.start ?? current, { row: newRow, col: newCol });
+      } else {
+        setActiveCell({ row: newRow, col: newCol });
+      }
+    },
+    [setActiveCell, setSelectionRange]
+  );
 
-  // Move selection
-  const moveSelection = useCallback((deltaRow: number, deltaCol: number, extend: boolean = false) => {
-    if (!activeCell) return;
-    
-    const newRow = Math.max(0, Math.min(ROWS - 1, activeCell.row + deltaRow));
-    const newCol = Math.max(0, Math.min(COLS - 1, activeCell.col + deltaCol));
-    
-    if (extend && selectionRange) {
-      setSelectionRange(selectionRange.start, { row: newRow, col: newCol });
-    } else {
-      setActiveCell({ row: newRow, col: newCol });
-    }
-  }, [activeCell, selectionRange, setActiveCell, setSelectionRange]);
-
-  // Copy
+  // --- Copy/Paste ---
   const copy = useCallback(async () => {
-    if (!activeCell) return;
-    
-    const cells: string[] = [];
-    if (selectionRange) {
-      const { start, end } = selectionRange;
-      const minRow = Math.min(start.row, end.row);
-      const maxRow = Math.max(start.row, end.row);
-      const minCol = Math.min(start.col, end.col);
-      const maxCol = Math.max(start.col, end.col);
-      
-      for (let r = minRow; r <= maxRow; r++) {
-        const rowCells: string[] = [];
-        for (let c = minCol; c <= maxCol; c++) {
-          const cellId = toCellId({ row: r, col: c });
-          const cell = sheet[cellId];
-          rowCells.push(String(cell?.computed ?? cell?.raw ?? ""));
-        }
-        cells.push(rowCells.join("\t"));
-      }
-    } else {
-      const cellId = toCellId(activeCell);
-      const cell = sheet[cellId];
-      cells.push(String(cell?.computed ?? cell?.raw ?? ""));
-    }
-    
-    copiedCellsRef.current = cells.join("\n");
-    
-    try {
-      await navigator.clipboard.writeText(copiedCellsRef.current);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-    }
-  }, [activeCell, selectionRange, sheet]);
+    const ac = useSelectionStore.getState().activeCell;
+    const sr = useSelectionStore.getState().selectionRange;
+    const s = useSpreadsheetStore.getState().sheet;
+    if (!ac) return;
 
-  // Paste
+    let text: string;
+    if (sr) {
+      const minRow = Math.min(sr.start.row, sr.end.row);
+      const maxRow = Math.max(sr.start.row, sr.end.row);
+      const minCol = Math.min(sr.start.col, sr.end.col);
+      const maxCol = Math.max(sr.start.col, sr.end.col);
+      const lines: string[] = [];
+      for (let r = minRow; r <= maxRow; r++) {
+        const cols: string[] = [];
+        for (let c = minCol; c <= maxCol; c++) {
+          const cell = s[toCellId({ row: r, col: c })];
+          cols.push(String(cell?.computed ?? cell?.raw ?? ""));
+        }
+        lines.push(cols.join("\t"));
+      }
+      text = lines.join("\n");
+    } else {
+      const cell = s[toCellId(ac)];
+      text = String(cell?.computed ?? cell?.raw ?? "");
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // clipboard not available
+    }
+  }, []);
+
   const paste = useCallback(async () => {
-    if (!activeCell) return;
-    
+    const ac = useSelectionStore.getState().activeCell;
+    if (!ac) return;
     saveToHistory();
-    
     try {
       const text = await navigator.clipboard.readText();
-      const rows = text.split("\n").map(row => row.split("\t"));
-      
+      const rows = text.split("\n").map((r) => r.split("\t"));
+      let s = { ...useSpreadsheetStore.getState().sheet };
       for (let r = 0; r < rows.length; r++) {
         const rowData = rows[r];
         if (!rowData) continue;
-        
         for (let c = 0; c < rowData.length; c++) {
-          const value = rowData[c];
-          if (value === undefined) continue;
-          
-          const cellId = toCellId({ row: activeCell.row + r, col: activeCell.col + c });
-          setCellValue(cellId, value, updatedBy);
+          const v = rowData[c] ?? "";
+          const cellId = toCellId({ row: ac.row + r, col: ac.col + c });
+          const formula = v.trim().startsWith("=") ? v.trim() : null;
+          s = {
+            ...s,
+            [cellId]: {
+              raw: v,
+              computed: formula ? null : (isNaN(Number(v)) ? v || null : Number(v)) ,
+              formula,
+              formatting: s[cellId]?.formatting ?? {},
+              updatedAt: Date.now(),
+              updatedBy,
+            },
+          };
         }
       }
-    } catch (err) {
-      console.error("Failed to paste:", err);
+      setSheet(evaluateSheet(s));
+    } catch {
+      // clipboard not available
     }
-  }, [activeCell, saveToHistory, setCellValue, updatedBy]);
+  }, [saveToHistory, setSheet, updatedBy]);
 
-  // Clear cell
+  // --- Clear ---
   const clearCell = useCallback(() => {
-    if (!activeCell) return;
-    
+    const ac = useSelectionStore.getState().activeCell;
+    const sr = useSelectionStore.getState().selectionRange;
+    if (!ac) return;
     saveToHistory();
-    
-    if (selectionRange) {
-      const { start, end } = selectionRange;
-      const minRow = Math.min(start.row, end.row);
-      const maxRow = Math.max(start.row, end.row);
-      const minCol = Math.min(start.col, end.col);
-      const maxCol = Math.max(start.col, end.col);
-      
-      for (let r = minRow; r <= maxRow; r++) {
-        for (let c = minCol; c <= maxCol; c++) {
-          const cellId = toCellId({ row: r, col: c });
-          setCellValue(cellId, "", updatedBy);
-        }
-      }
-    } else {
-      const cellId = toCellId(activeCell);
-      setCellValue(cellId, "", updatedBy);
-    }
-  }, [activeCell, selectionRange, saveToHistory, setCellValue, updatedBy]);
+    let s = { ...useSpreadsheetStore.getState().sheet };
 
-  // Toggle formatting
+    const cells: CellCoord[] = sr
+      ? (() => {
+          const list: CellCoord[] = [];
+          const minRow = Math.min(sr.start.row, sr.end.row);
+          const maxRow = Math.max(sr.start.row, sr.end.row);
+          const minCol = Math.min(sr.start.col, sr.end.col);
+          const maxCol = Math.max(sr.start.col, sr.end.col);
+          for (let r = minRow; r <= maxRow; r++)
+            for (let c = minCol; c <= maxCol; c++)
+              list.push({ row: r, col: c });
+          return list;
+        })()
+      : [ac];
+
+    for (const coord of cells) {
+      const id = toCellId(coord);
+      const existing = s[id];
+      if (existing) {
+        s = { ...s, [id]: { ...existing, raw: "", computed: null, formula: null, updatedAt: Date.now(), updatedBy } };
+      }
+    }
+    setSheet(evaluateSheet(s));
+  }, [saveToHistory, setSheet, updatedBy]);
+
+  // --- Format toggles ---
   const toggleBold = useCallback(() => {
-    if (!activeCell) return;
-    
-    const cellId = toCellId(activeCell);
-    const cell = sheet[cellId];
-    setCellValue(cellId, cell?.raw ?? "", updatedBy, {
-      ...cell?.formatting,
-      bold: !cell?.formatting?.bold,
-    });
-  }, [activeCell, sheet, setCellValue, updatedBy]);
+    const ac = useSelectionStore.getState().activeCell;
+    if (!ac) return;
+    const id = toCellId(ac);
+    const s = useSpreadsheetStore.getState().sheet;
+    const cell = s[id];
+    const next = {
+      ...s,
+      [id]: {
+        raw: cell?.raw ?? "",
+        computed: cell?.computed ?? null,
+        formula: cell?.formula ?? null,
+        formatting: { ...cell?.formatting, bold: !cell?.formatting?.bold },
+        updatedAt: Date.now(),
+        updatedBy,
+      },
+    };
+    setSheet(evaluateSheet(next));
+  }, [setSheet, updatedBy]);
 
   const toggleItalic = useCallback(() => {
-    if (!activeCell) return;
-    
-    const cellId = toCellId(activeCell);
-    const cell = sheet[cellId];
-    setCellValue(cellId, cell?.raw ?? "", updatedBy, {
-      ...cell?.formatting,
-      italic: !cell?.formatting?.italic,
-    });
-  }, [activeCell, sheet, setCellValue, updatedBy]);
+    const ac = useSelectionStore.getState().activeCell;
+    if (!ac) return;
+    const id = toCellId(ac);
+    const s = useSpreadsheetStore.getState().sheet;
+    const cell = s[id];
+    const next = {
+      ...s,
+      [id]: {
+        raw: cell?.raw ?? "",
+        computed: cell?.computed ?? null,
+        formula: cell?.formula ?? null,
+        formatting: { ...cell?.formatting, italic: !cell?.formatting?.italic },
+        updatedAt: Date.now(),
+        updatedBy,
+      },
+    };
+    setSheet(evaluateSheet(next));
+  }, [setSheet, updatedBy]);
 
-  // Jump to cell
-  const jumpToCell = useCallback((cellId: string) => {
-    try {
-      const coord = parseCellId(cellId);
-      setActiveCell(coord);
-    } catch {
-      // Invalid cell ID
-    }
-  }, [setActiveCell]);
+  // --- Jump ---
+  const jumpToCell = useCallback(
+    (cellId: string) => {
+      try {
+        setActiveCell(parseCellId(cellId));
+      } catch {
+        // invalid
+      }
+    },
+    [setActiveCell]
+  );
 
-  // Keyboard event handler
+  // --- Keyboard handler ---
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Skip if we're in an input field
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const inInput =
+        target.tagName === "INPUT" || target.tagName === "TEXTAREA";
 
-      const isShift = e.shiftKey;
       const isCtrl = e.ctrlKey || e.metaKey;
+      const isShift = e.shiftKey;
 
-      // Navigation
-      if (!isCtrl) {
-        switch (e.key) {
-          case "ArrowUp":
-            e.preventDefault();
-            moveSelection(-1, 0, isShift);
-            break;
-          case "ArrowDown":
-            e.preventDefault();
-            moveSelection(1, 0, isShift);
-            break;
-          case "ArrowLeft":
-            e.preventDefault();
-            moveSelection(0, -1, isShift);
-            break;
-          case "ArrowRight":
-            e.preventDefault();
-            moveSelection(0, 1, isShift);
-            break;
-          case "Tab":
-            e.preventDefault();
-            if (isShift) {
-              moveSelection(0, -1);
-            } else {
-              if (activeCell && activeCell.col === COLS - 1) {
-                setActiveCell({ row: Math.min(ROWS - 1, activeCell.row + 1), col: 0 });
-              } else {
-                moveSelection(0, 1);
-              }
-            }
-            break;
-          case "Enter":
-            e.preventDefault();
-            if (isEditingRef.current) {
-              isEditingRef.current = false;
-              onEditEnd?.();
-              moveSelection(1, 0);
-            } else {
-              isEditingRef.current = true;
-              onEditStart?.();
-            }
-            break;
-          case "Escape":
-            if (isEditingRef.current) {
-              isEditingRef.current = false;
-              onEditEnd?.();
-            }
-            break;
-          case "Delete":
-          case "Backspace":
-            e.preventDefault();
-            clearCell();
-            break;
-          case "F2":
-            e.preventDefault();
-            isEditingRef.current = true;
-            onEditStart?.();
-            break;
-        }
-      }
-
-      // Ctrl/Cmd shortcuts
       if (isCtrl) {
         switch (e.key.toLowerCase()) {
-          case "b":
-            e.preventDefault();
-            toggleBold();
-            break;
-          case "i":
-            e.preventDefault();
-            toggleItalic();
-            break;
           case "z":
             e.preventDefault();
-            if (isShift) {
-              redo();
-            } else {
-              undo();
-            }
-            break;
+            isShift ? redo() : undo();
+            return;
           case "y":
             e.preventDefault();
             redo();
-            break;
+            return;
+          case "b":
+            e.preventDefault();
+            toggleBold();
+            return;
+          case "i":
+            e.preventDefault();
+            toggleItalic();
+            return;
           case "c":
-            e.preventDefault();
-            copy();
-            break;
+            if (!inInput) { e.preventDefault(); copy(); }
+            return;
           case "v":
-            e.preventDefault();
-            paste();
-            break;
+            if (!inInput) { e.preventDefault(); paste(); }
+            return;
           case "x":
-            e.preventDefault();
-            copy();
-            clearCell();
-            break;
+            if (!inInput) { e.preventDefault(); copy().then(clearCell); }
+            return;
           case "home":
             e.preventDefault();
             setActiveCell({ row: 0, col: 0 });
-            break;
-          case "end":
+            return;
+          case "end": {
             e.preventDefault();
-            // Jump to last used cell
+            const s = useSpreadsheetStore.getState().sheet;
             let maxRow = 0, maxCol = 0;
-            for (const cellId of Object.keys(sheet)) {
+            for (const id of Object.keys(s)) {
               try {
-                const coord = parseCellId(cellId);
+                const coord = parseCellId(id);
                 maxRow = Math.max(maxRow, coord.row);
                 maxCol = Math.max(maxCol, coord.col);
-              } catch {
-                // Skip
-              }
+              } catch { /* skip */ }
             }
             setActiveCell({ row: maxRow, col: maxCol });
-            break;
+            return;
+          }
+          case "f":
+            // Ctrl+F handled by search overlay via custom event
+            e.preventDefault();
+            window.dispatchEvent(new CustomEvent("sheet:open-search"));
+            return;
         }
+      }
+
+      if (inInput) return;
+
+      const ac = useSelectionStore.getState().activeCell;
+
+      switch (e.key) {
+        case "ArrowUp":
+          e.preventDefault();
+          moveSelection(-1, 0, isShift);
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          moveSelection(1, 0, isShift);
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          moveSelection(0, -1, isShift);
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          moveSelection(0, 1, isShift);
+          break;
+        case "Tab":
+          e.preventDefault();
+          if (isShift) {
+            moveSelection(0, -1);
+          } else if (ac && ac.col === COLS - 1) {
+            setActiveCell({ row: Math.min(ROWS - 1, ac.row + 1), col: 0 });
+          } else {
+            moveSelection(0, 1);
+          }
+          break;
+        case "Enter":
+          e.preventDefault();
+          if (ac) onEditStart?.(toCellId(ac));
+          break;
+        case "Escape":
+          e.preventDefault();
+          onEditEnd?.();
+          break;
+        case "Delete":
+        case "Backspace":
+          e.preventDefault();
+          clearCell();
+          break;
+        case "F2":
+          e.preventDefault();
+          if (ac) onEditStart?.(toCellId(ac));
+          break;
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [
-    activeCell,
     moveSelection,
     setActiveCell,
     clearCell,
@@ -362,13 +370,12 @@ export function useKeyboardNav({ updatedBy, onEditStart, onEditEnd }: UseKeyboar
     paste,
     undo,
     redo,
-    sheet,
     onEditStart,
     onEditEnd,
   ]);
 
   return {
-    isEditing: isEditingRef.current,
+    saveToHistory,
     undo,
     redo,
     copy,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useSelectionStore } from "@/store/selectionStore";
 import { useSpreadsheetStore } from "@/store/spreadsheetStore";
 import { useSpreadsheet } from "@/hooks/useSpreadsheet";
@@ -34,30 +34,63 @@ export function FormulaBar({ updatedBy }: FormulaBarProps) {
   const raw = cell?.raw ?? "";
 
   const [inputValue, setInputValue] = useState(raw);
+  // Track whether the user is currently editing so we don't stomp their input
+  const isEditingRef = useRef(false);
 
+  // Only sync from store when the active cell changes (not on every raw update)
   useEffect(() => {
-    setInputValue(raw);
-  }, [cellId, raw]);
+    if (!isEditingRef.current) {
+      setInputValue(raw);
+    }
+  }, [cellId]); // intentionally only on cellId change
 
-  const isFormula = raw.trim().startsWith("=");
-  const tokens = isFormula ? getFormulaTokens(raw) : [];
+  // Also sync when a remote update comes in (different user changed raw)
+  useEffect(() => {
+    if (!isEditingRef.current) {
+      setInputValue(raw);
+    }
+  }, [raw]);
+
+  const isFormula = inputValue.trim().startsWith("=");
+  const tokens = isFormula ? getFormulaTokens(inputValue) : [];
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const v = e.target.value;
-      setInputValue(v);
+      isEditingRef.current = true;
+      setInputValue(e.target.value);
+      // Do NOT call updateCell here — wait for Enter or blur
+    },
+    []
+  );
+
+  const commitValue = useCallback(
+    (value: string) => {
+      isEditingRef.current = false;
       if (cellId) {
-        updateCell(cellId, v);
+        updateCell(cellId, value);
       }
     },
     [cellId, updateCell]
   );
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commitValue(inputValue);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        isEditingRef.current = false;
+        setInputValue(raw);
+        (e.target as HTMLInputElement).blur();
+      }
+    },
+    [inputValue, raw, commitValue]
+  );
+
   const handleBlur = useCallback(() => {
-    if (cellId && inputValue !== raw) {
-      updateCell(cellId, inputValue);
-    }
-  }, [cellId, inputValue, raw, updateCell]);
+    commitValue(inputValue);
+  }, [inputValue, commitValue]);
 
   return (
     <div className="flex flex-col gap-2 border-b border-border-subtle bg-surface-2 px-4 py-3">
@@ -72,6 +105,7 @@ export function FormulaBar({ updatedBy }: FormulaBarProps) {
           type="text"
           value={inputValue}
           onChange={handleChange}
+          onKeyDown={handleKeyDown}
           onBlur={handleBlur}
           className={`flex-1 rounded-lg border px-3 py-2 font-mono text-sm outline-none transition-colors ${
             isFormula
