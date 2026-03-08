@@ -18,8 +18,8 @@ export default function Home() {
   }, [loading, router, user]);
 
   return (
-    <div className="ambient-grid flex min-h-screen items-center justify-center">
-      <div className="text-sm text-text-secondary">Preparing your grid…</div>
+    <div className="flex min-h-screen items-center justify-center bg-bg-base">
+      <div className="text-lg font-medium text-text-secondary">Preparing your grid…</div>
     </div>
   );
 }

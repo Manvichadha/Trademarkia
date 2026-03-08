@@ -23,9 +23,9 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SHEET — Collaborative Grid",
+  title: "Sheet — Collaborative Spreadsheet",
   description:
-    "A real-time, obsidian-dark collaborative spreadsheet that feels like it shipped from 2035.",
+    "A clean, modern, real-time collaborative spreadsheet that feels as polished as your favorite dashboard tools.",
 };
 
 export default function RootLayout({

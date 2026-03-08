@@ -71,24 +71,47 @@ export async function ensureUserProfile(
   const { firestore } = getFirebaseClients();
   const usersCollection = collection(firestore, "users");
   const userRef = doc(usersCollection, user.uid);
-
-  const snapshot = await getDoc(userRef);
-
   const color = assignIdentityColor(user.uid);
 
-  if (!snapshot.exists()) {
-    await setDoc(userRef, {
-      uid: user.uid,
-      displayName,
-      color,
-      photoURL: user.photoURL ?? null,
-      createdAt: serverTimestamp(),
-    });
+  try {
+    const snapshot = await getDoc(userRef);
 
-    if (!user.displayName) {
-      await updateProfile(user, { displayName });
+    if (!snapshot.exists()) {
+      await setDoc(userRef, {
+        uid: user.uid,
+        displayName,
+        color,
+        photoURL: user.photoURL ?? null,
+        createdAt: serverTimestamp(),
+      });
+
+      if (!user.displayName) {
+        await updateProfile(user, { displayName });
+      }
+
+      return {
+        uid: user.uid,
+        displayName,
+        color,
+        photoURL: user.photoURL ?? null,
+        createdAt: new Date(),
+      };
     }
 
+    const data = snapshot.data();
+
+    return {
+      uid: data.uid as string,
+      displayName: (data.displayName as string) ?? displayName,
+      color: (data.color as string) ?? color,
+      photoURL: (data.photoURL as string | null) ?? null,
+      createdAt: (data.createdAt?.toDate?.() as Date | undefined) ?? new Date(),
+    };
+  } catch (error) {
+    // In very restricted networks Firestore may be offline; fall back to a
+    // purely auth-derived profile so that sign-in can still succeed locally.
+    // Writes will be queued by the SDK and flushed when connectivity returns.
+    console.error("Failed to load or create user profile; continuing offline", error);
     return {
       uid: user.uid,
       displayName,
@@ -97,16 +120,6 @@ export async function ensureUserProfile(
       createdAt: new Date(),
     };
   }
-
-  const data = snapshot.data();
-
-  return {
-    uid: data.uid as string,
-    displayName: (data.displayName as string) ?? displayName,
-    color: (data.color as string) ?? color,
-    photoURL: (data.photoURL as string | null) ?? null,
-    createdAt: (data.createdAt?.toDate?.() as Date | undefined) ?? new Date(),
-  };
 }
 
 export function listenToAuthState(listener: AuthStateListener): () => void {

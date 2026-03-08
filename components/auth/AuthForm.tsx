@@ -61,30 +61,30 @@ export function AuthForm() {
   };
 
   return (
-    <div className="glass-panel fade-slide-up w-full max-w-md px-8 py-10">
-      <div className="mb-6 flex items-center justify-between gap-4">
+    <div className="glass-panel fade-slide-up w-full max-w-lg px-10 py-12">
+      <div className="mb-8 flex items-center justify-between gap-4">
         <div>
-          <div className="text-xs font-mono uppercase tracking-[0.22em] text-text-muted">
+          <div className="text-sm font-mono uppercase tracking-[0.22em] text-text-muted">
             Welcome to
           </div>
-          <div className="mt-1 text-2xl font-semibold text-gradient-brand font-[var(--font-syne)]">
+          <div className="mt-2 text-3xl font-bold text-gradient-brand font-[var(--font-syne)]">
             SHEET
           </div>
         </div>
-        <div className="rounded-full bg-surface-3/80 px-3 py-1 text-[11px] font-medium text-text-secondary">
+        <div className="rounded-full bg-surface-2 px-4 py-2 text-sm font-medium text-text-secondary">
           ● Live collaborative grid
         </div>
       </div>
 
       {step === "google" && (
-        <div className="space-y-6">
-          <p className="text-sm text-text-secondary">
+        <div className="space-y-8">
+          <p className="text-base leading-relaxed text-text-secondary">
             Sign in with Google to claim your identity color and join real-time
             sessions. We only use your email for authentication.
           </p>
           <GoogleSignInButton onClick={handleGoogleSignIn} loading={loading} />
           {error && (
-            <p className="text-xs text-accent-danger" role="alert">
+            <p className="text-sm text-accent-danger" role="alert">
               {error}
             </p>
           )}
@@ -92,14 +92,14 @@ export function AuthForm() {
       )}
 
       {step === "displayName" && (
-        <div className="space-y-5">
-          <p className="text-sm text-text-secondary">
+        <div className="space-y-6">
+          <p className="text-base leading-relaxed text-text-secondary">
             Choose the name collaborators will see when you appear in a sheet.
           </p>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <label
               htmlFor="display-name"
-              className="text-xs font-medium uppercase tracking-[0.18em] text-text-muted"
+              className="text-sm font-medium uppercase tracking-[0.14em] text-text-muted"
             >
               Display name
             </label>
@@ -109,15 +109,15 @@ export function AuthForm() {
               autoFocus
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
-              className="h-10 w-full rounded-md border border-border-subtle bg-surface-2/80 px-3 text-sm text-text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-12 w-full rounded-xl border border-border-subtle bg-surface-2/80 px-4 text-base text-text-primary outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/30"
               placeholder="e.g. Vega, Harper, Lin"
             />
           </div>
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-4 pt-2">
             <button
               type="button"
               onClick={() => setStep("google")}
-              className="text-xs text-text-muted underline-offset-4 hover:underline"
+              className="text-sm text-text-muted underline-offset-4 hover:underline"
             >
               Back
             </button>
@@ -125,13 +125,13 @@ export function AuthForm() {
               type="button"
               onClick={handleCompleteProfile}
               disabled={loading}
-              className="inline-flex h-10 items-center justify-center rounded-full bg-primary px-5 text-xs font-medium uppercase tracking-[0.18em] text-bg-base shadow-lg outline-none transition hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-12 items-center justify-center rounded-xl bg-primary px-8 text-sm font-semibold text-white shadow-lg outline-none transition hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Saving…" : "Enter dashboard"}
             </button>
           </div>
           {error && (
-            <p className="text-xs text-accent-danger" role="alert">
+            <p className="text-sm text-accent-danger" role="alert">
               {error}
             </p>
           )}
