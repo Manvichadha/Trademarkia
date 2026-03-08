@@ -17,7 +17,6 @@ import { SearchOverlay } from "@/components/editor/SearchOverlay";
 import { HeatMapToggle } from "@/components/editor/HeatMapToggle";
 import { EditableTitle } from "@/components/editor/EditableTitle";
 import { KeyboardShortcutsModal } from "@/components/editor/KeyboardShortcutsModal";
-import { ActivityFeed } from "@/components/editor/ActivityFeed";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 const DEFAULT_COL_WIDTH = 100;
@@ -33,10 +32,10 @@ export default function SheetPage() {
   const { getColumnWidth, getRowHeight, startColumnResize, startRowResize } = useResize({
     defaultWidth: DEFAULT_COL_WIDTH,
     defaultHeight: DEFAULT_ROW_HEIGHT,
-    onColumnResize: (col, width) => {
+    onColumnResize: () => {
       if (docId) saveMetadata(docId, {}).catch(console.error);
     },
-    onRowResize: (row, height) => {
+    onRowResize: () => {
       if (docId) saveMetadata(docId, {}).catch(console.error);
     },
   });
@@ -45,7 +44,6 @@ export default function SheetPage() {
   const [heatMapActive, setHeatMapActive] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [activityFeedOpen, setActivityFeedOpen] = useState(false);
 
   // Firestore sync
   const { syncState, offlineQueueCount } = useSpreadsheet(
@@ -139,24 +137,9 @@ export default function SheetPage() {
         </div>
       </header>
 
-      {/* Toolbar with activity toggle */}
+      {/* Toolbar */}
       <div className="flex items-center justify-between border-b border-border-subtle bg-surface-2 px-4 py-2">
         <Toolbar updatedBy={user.uid} documentTitle="spreadsheet" />
-        
-        {/* Activity feed toggle */}
-        <button
-          type="button"
-          onClick={() => setActivityFeedOpen(!activityFeedOpen)}
-          className={`ml-4 flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
-            activityFeedOpen ? "bg-primary/20 text-primary" : "hover:bg-surface-3"
-          }`}
-          aria-label="Toggle activity feed"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="hidden lg:inline">Activity</span>
-        </button>
       </div>
 
       {/* Formula Bar */}
@@ -180,7 +163,6 @@ export default function SheetPage() {
                 displayName={user.displayName ?? user.email ?? "User"}
                 getColumnWidth={getColumnWidth}
                 getRowHeight={getRowHeight}
-                gridScrollRef={gridScrollRef}
               />
             }
           />
@@ -199,17 +181,6 @@ export default function SheetPage() {
             open={shortcutsOpen}
             onClose={() => setShortcutsOpen(false)}
           />
-        )}
-
-        {/* Activity feed sidebar */}
-        {activityFeedOpen && (
-          <div className="absolute right-0 top-0 h-full w-80 transform transition-transform duration-300 ease-in-out shadow-2xl">
-            <ActivityFeed
-              currentUid={user.uid}
-              isOpen={activityFeedOpen}
-              onClose={() => setActivityFeedOpen(false)}
-            />
-          </div>
         )}
       </main>
     </div>

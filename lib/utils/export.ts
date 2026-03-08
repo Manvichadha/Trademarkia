@@ -4,7 +4,7 @@
  */
 
 import type { SheetData } from "@/lib/spreadsheet/types";
-import { parseCellId, expandRange, type CellCoord, type CellRange } from "@/lib/spreadsheet/cellAddress";
+import { parseCellId, expandRange, type CellRange } from "@/lib/spreadsheet/cellAddress";
 
 /**
  * Convert sheet data to CSV format.

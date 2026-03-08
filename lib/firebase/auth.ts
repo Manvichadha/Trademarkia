@@ -44,9 +44,7 @@ function assignIdentityColor(uid: string): string {
   // Deterministic color based on uid hash
   let hash = 0;
   for (let index = 0; index < uid.length; index += 1) {
-    // eslint-disable-next-line no-bitwise
     hash = (hash << 5) - hash + uid.charCodeAt(index);
-    // eslint-disable-next-line no-bitwise
     hash |= 0;
   }
   const colorIndex = Math.abs(hash) % IDENTITY_COLORS.length;

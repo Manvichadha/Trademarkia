@@ -55,8 +55,6 @@ const FUNCTION_NAMES = new Set([
   "FALSE",
 ]);
 
-const CELL_REF = /^[A-Z]{1,2}\d+$/i;
-const RANGE_REF = /^[A-Z]{1,2}\d+:[A-Z]{1,2}\d+$/i;
 
 function tokenize(formula: string): Token[] {
   const tokens: Token[] = [];

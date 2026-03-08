@@ -25,9 +25,7 @@ export const USER_COLORS: readonly string[] = [
 export function assignUserColor(userId: string): string {
   let hash = 0;
   for (let i = 0; i < userId.length; i++) {
-    // eslint-disable-next-line no-bitwise
     hash = (hash << 5) - hash + userId.charCodeAt(i);
-    // eslint-disable-next-line no-bitwise
     hash |= 0;
   }
   const index = Math.abs(hash) % USER_COLORS.length;

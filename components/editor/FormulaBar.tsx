@@ -37,19 +37,13 @@ export function FormulaBar({ updatedBy }: FormulaBarProps) {
   // Track whether the user is currently editing so we don't stomp their input
   const isEditingRef = useRef(false);
 
-  // Only sync from store when the active cell changes (not on every raw update)
+  // Sync from store when active cell changes or remote update comes in
   useEffect(() => {
     if (!isEditingRef.current) {
-      setInputValue(raw);
+      const t = setTimeout(() => setInputValue(raw), 0);
+      return () => clearTimeout(t);
     }
-  }, [cellId]); // intentionally only on cellId change
-
-  // Also sync when a remote update comes in (different user changed raw)
-  useEffect(() => {
-    if (!isEditingRef.current) {
-      setInputValue(raw);
-    }
-  }, [raw]);
+  }, [cellId, raw]);
 
   const isFormula = inputValue.trim().startsWith("=");
   const tokens = isFormula ? getFormulaTokens(inputValue) : [];

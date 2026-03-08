@@ -28,9 +28,8 @@ export function useKeyboardNav({
   onEditStart,
   onEditEnd,
 }: UseKeyboardNavOptions) {
-  const { activeCell, selectionRange, setActiveCell, setSelectionRange } =
-    useSelectionStore();
-  const { sheet, setSheet } = useSpreadsheetStore();
+  const { setActiveCell, setSelectionRange } = useSelectionStore();
+  const { setSheet } = useSpreadsheetStore();
 
   // --- History (undo/redo) ---
   const historyRef = useRef<HistoryEntry[]>([]);
@@ -258,7 +257,7 @@ export function useKeyboardNav({
         switch (e.key.toLowerCase()) {
           case "z":
             e.preventDefault();
-            isShift ? redo() : undo();
+            if (isShift) redo(); else undo();
             return;
           case "y":
             e.preventDefault();

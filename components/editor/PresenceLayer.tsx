@@ -11,7 +11,7 @@
  * GPU-accelerated movement via CSS transform: translate().
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   subscribeToPresence,
   joinPresence,
@@ -23,7 +23,6 @@ import { useSelectionStore } from "@/store/selectionStore";
 import { toCellId } from "@/lib/spreadsheet/cellAddress";
 
 const HEADER_WIDTH = 48;
-const DEFAULT_COL_WIDTH = 100;
 const DEFAULT_ROW_HEIGHT = 28;
 const TRAIL_LENGTH = 3;
 
@@ -33,7 +32,6 @@ interface PresenceLayerProps {
   displayName: string;
   getColumnWidth: (col: number) => number;
   getRowHeight: (row: number) => number;
-  gridScrollRef: React.RefObject<HTMLDivElement | null>;
 }
 
 interface TrailDot {
@@ -52,50 +50,50 @@ export function PresenceLayer({
   displayName,
   getColumnWidth,
   getRowHeight,
-  gridScrollRef,
 }: PresenceLayerProps) {
   const { activeCell } = useSelectionStore();
   const [otherUsers, setOtherUsers] = useState<PresenceMap>({});
   const throttleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const userStatesRef = useRef<Record<string, UserState>>({});
-  const [, forceRender] = useState(0);
+  const [userStates, setUserStates] = useState<Record<string, UserState>>({});
 
   // Join presence on mount
   useEffect(() => {
     const leave = joinPresence(docId, uid, displayName);
     const unsub = subscribeToPresence(docId, uid, (presence) => {
       setOtherUsers(presence);
-      // Update trail for each user whose cell changed
-      for (const [userId, user] of Object.entries(presence)) {
-        const prev = userStatesRef.current[userId];
-        const pos = getCellPosition(
-          user.currentCell,
-          getColumnWidth,
-          getRowHeight
-        );
-        if (pos) {
-          const prevTrail = prev?.trail ?? [];
-          const newTrail: TrailDot[] = [
-            ...(prev?.trail.slice(0, TRAIL_LENGTH - 1).map((d, i) => ({
-              ...d,
-              opacity: Math.max(0, d.opacity - 0.25),
-            })) ?? []),
-          ];
-          if (prev) {
-            const prevPos = getCellPosition(prev.currentCell, getColumnWidth, getRowHeight);
-            if (prevPos) {
-              newTrail.unshift({ x: prevPos.x, y: prevPos.y, opacity: 0.5 });
+      
+      setUserStates((prevStates) => {
+        const nextStates: Record<string, UserState> = {};
+        for (const [userId, user] of Object.entries(presence)) {
+          const prev = prevStates[userId];
+          const pos = getCellPosition(
+            user.currentCell,
+            getColumnWidth,
+            getRowHeight
+          );
+          if (pos) {
+            const newTrail: TrailDot[] = [
+              ...(prev?.trail.slice(0, TRAIL_LENGTH - 1).map((d) => ({
+                ...d,
+                opacity: Math.max(0, d.opacity - 0.25),
+              })) ?? []),
+            ];
+            if (prev) {
+              const prevPos = getCellPosition(prev.currentCell, getColumnWidth, getRowHeight);
+              if (prevPos) {
+                newTrail.unshift({ x: prevPos.x, y: prevPos.y, opacity: 0.5 });
+              }
             }
+            nextStates[userId] = {
+              ...user,
+              trail: newTrail.slice(0, TRAIL_LENGTH),
+            };
+          } else {
+            nextStates[userId] = { ...(prev ?? user), ...user, trail: prev?.trail ?? [] };
           }
-          userStatesRef.current[userId] = {
-            ...user,
-            trail: newTrail.slice(0, TRAIL_LENGTH),
-          };
-        } else {
-          userStatesRef.current[userId] = { ...(prev ?? user), ...user, trail: prev?.trail ?? [] };
         }
-      }
-      forceRender((n) => n + 1);
+        return nextStates;
+      });
     });
 
     return () => {
@@ -123,7 +121,7 @@ export function PresenceLayer({
     >
       {Object.values(otherUsers).map((user) => {
         const pos = getCellPosition(user.currentCell, getColumnWidth, getRowHeight);
-        const userState = userStatesRef.current[user.uid];
+        const userState = userStates[user.uid];
         if (!pos) return null;
 
         return (

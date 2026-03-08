@@ -33,7 +33,6 @@ import type { SheetData } from "@/lib/spreadsheet/types";
 interface DraggableColumnHeadersProps {
   colOrder: number[];
   onReorder: (newOrder: number[]) => void;
-  getColumnWidth: (col: number) => number;
   renderColumnHeader: (col: number, isDragging?: boolean) => React.ReactNode;
 }
 
@@ -46,7 +45,6 @@ function remapColumnReferences(
   // Build a mapping: old physical col index → new physical col index
   const colMap: Record<number, number> = {};
   for (let i = 0; i < newOrder.length; i++) {
-    const physicalCol = newOrder[i]!;
     // The header at position i was originally at position oldOrder[i]
     colMap[oldOrder[i]!] = i;
   }
@@ -116,7 +114,6 @@ function SortableCol({ colId, children }: SortableColProps) {
 export function DraggableColumnHeaders({
   colOrder,
   onReorder,
-  getColumnWidth,
   renderColumnHeader,
 }: DraggableColumnHeadersProps) {
   const { sheet, setSheet } = useSpreadsheetStore();

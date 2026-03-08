@@ -16,7 +16,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSpreadsheetStore } from "@/store/spreadsheetStore";
 import { evaluateSheet } from "@/lib/spreadsheet/evaluator";
-import { setCell } from "@/lib/spreadsheet/engine";
 import { subscribeToSheet, flushCellWrites } from "@/lib/firebase/cells";
 import type { SheetData, CellData, CellFormatting } from "@/lib/spreadsheet/types";
 
@@ -37,7 +36,7 @@ export function useSpreadsheet(updatedByOrOptions: string | UseSpreadsheetOption
   const updatedBy = isSync ? updatedByOrOptions.updatedBy : updatedByOrOptions;
   const docId = isSync ? updatedByOrOptions.docId : null;
 
-  const { sheet, setCellValue, setSheet, frozenRows, frozenCols, setFrozenRows, setFrozenCols } = useSpreadsheetStore();
+  const { sheet, setCellValue, setSheet } = useSpreadsheetStore();
 
   const [syncState, setSyncState] = useState<SyncState>("live");
   const pendingWritesRef = useRef<Map<string, CellData>>(new Map());

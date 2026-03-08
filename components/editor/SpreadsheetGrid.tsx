@@ -34,10 +34,7 @@ interface SpreadsheetGridProps {
   presenceOverlay?: React.ReactNode;
 }
 
-const COL_LABELS = Array.from({ length: COLS }, (_, i) =>
-  toCellId({ row: 0, col: i }).replace(/\d+/, "")
-);
-// COL_LABELS used as fallback reference - actual rendering done in DraggableColumnHeaders
+
 
 export function SpreadsheetGrid({
   updatedBy,
@@ -50,7 +47,6 @@ export function SpreadsheetGrid({
   resizingRow: extResizingRow,
   onColumnResize,
   onRowResize,
-  scrollRef: externalScrollRef,
   presenceOverlay,
 }: SpreadsheetGridProps) {
   const { selectCell, selectRange } = useCellSelection();
@@ -63,13 +59,6 @@ export function SpreadsheetGrid({
   const [colOrder, setColOrder] = useState<number[]>(() =>
     Array.from({ length: COLS }, (_, i) => i)
   );
-  // Expose scroll ref to parent (for PresenceLayer positioning)
-  useEffect(() => {
-    if (externalScrollRef && scrollContainerRef.current) {
-      (externalScrollRef as React.MutableRefObject<HTMLDivElement | null>).current =
-        scrollContainerRef.current;
-    }
-  });
   // Track which cell is being edited inline
   const [editingCellId, setEditingCellId] = useState<string | null>(null);
 
@@ -218,7 +207,6 @@ export function SpreadsheetGrid({
             <DraggableColumnHeaders
               colOrder={colOrder}
               onReorder={setColOrder}
-              getColumnWidth={getColumnWidth}
               renderColumnHeader={(col) => (
                 <ColumnHeader
                   key={col}
@@ -277,7 +265,7 @@ export function SpreadsheetGrid({
                       onEditDone={() => setEditingCellId(null)}
                       onCellMouseDown={handleCellMouseDown}
                       onCellMouseEnter={handleCellMouseEnter}
-                      // @ts-ignore - inline style for freeze pane
+                      // @ts-expect-error - inline style for freeze pane
                       style={{
                         position: isColFrozen ? 'sticky' : 'relative',
                         left: isColFrozen ? `${HEADER_WIDTH + Array.from({ length: col }, (_, c) => getColumnWidth(c)).reduce((a, b) => a + b, 0)}px` : 'auto',

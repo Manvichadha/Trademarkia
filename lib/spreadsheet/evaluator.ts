@@ -87,7 +87,8 @@ export function buildDependencyGraph(sheet: SheetData): Map<string, Set<string>>
         const deps = new Set<string>();
         collectDependencies(ast, deps);
         graph.set(cellId, deps);
-      } catch {
+      } catch (error: unknown) {
+        console.error(`Failed to parse formula ${cellId}: ${data.formula}, error:`, (error as Error).message);
         graph.set(cellId, new Set());
       }
     }
@@ -105,20 +106,27 @@ export function topologicalSort(
   const visited = new Set<string>();
   const temp = new Set<string>();
   const result: string[] = [];
-  const cycle: string[] = [];
 
-  function visit(id: string): boolean {
+  function visit(id: string, path: string[] = []): boolean {
     if (temp.has(id)) {
-      cycle.push(id);
-      return true; // cycle detected
+      // Found a real cycle - only throw if the cell depends on itself
+      const cycleStart = path.indexOf(id);
+      if (cycleStart !== -1) {
+        const cyclePath = [...path.slice(cycleStart), id];
+        throw new Error(`Circular reference: ${cyclePath.join(" -> ")}`);
+      }
+      return false;
     }
     if (visited.has(id)) return false;
+    
     temp.add(id);
     const deps = graph.get(id);
     if (deps) {
       for (const dep of deps) {
-        if (visit(dep)) {
-          cycle.push(id);
+        // Skip self-references that aren't really cycles
+        if (dep === id) continue;
+        
+        if (visit(dep, [...path, id])) {
           return true;
         }
       }
@@ -131,9 +139,7 @@ export function topologicalSort(
 
   for (const id of graph.keys()) {
     if (!visited.has(id)) {
-      if (visit(id)) {
-        throw new Error(`Circular reference: ${cycle.reverse().join(" -> ")}`);
-      }
+      visit(id, []);
     }
   }
 
@@ -438,7 +444,11 @@ export function evaluateSheet(sheet: SheetData): SheetData {
   let order: string[];
   try {
     order = topologicalSort(graph);
-  } catch {
+  } catch (error: unknown) {
+    // Log the actual error for debugging
+    console.error('Topological sort failed:', (error as Error).message);
+    console.error('Graph:', Array.from(graph.entries()));
+    
     // Circular ref: mark all formula cells in cycle as #CIRC!
     const result = { ...sheet };
     for (const [id, data] of Object.entries(result)) {

@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { toCellId } from "@/lib/spreadsheet/cellAddress";
 import { getDisplayValue, isFormulaCell } from "@/lib/spreadsheet/engine";
-import { useSpreadsheetStore } from "@/store/spreadsheetStore";
 import { useCellSelection } from "@/hooks/useCellSelection";
 import { useSpreadsheet } from "@/hooks/useSpreadsheet";
-
-const ROW_HEIGHT = 28;
 
 interface CellProps {
   row: number;
@@ -51,10 +48,10 @@ export function Cell({ row, col, width = 100, height = 28, updatedBy, heatMap, f
   // Trigger shimmer animation when another user updates this cell
   useEffect(() => {
     if (cell?.updatedBy && cell.updatedBy !== prevUpdatedByRef.current && cell.updatedBy !== updatedBy) {
-      setShowShimmer(true);
-      const timer = setTimeout(() => setShowShimmer(false), 600);
+      const t1 = setTimeout(() => setShowShimmer(true), 0);
+      const t2 = setTimeout(() => setShowShimmer(false), 600);
       prevUpdatedByRef.current = cell.updatedBy;
-      return () => clearTimeout(timer);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     }
     if (cell?.updatedBy) {
       prevUpdatedByRef.current = cell.updatedBy;
@@ -64,17 +61,17 @@ export function Cell({ row, col, width = 100, height = 28, updatedBy, heatMap, f
   // Commit pulse ripple when this user saves
   useEffect(() => {
     if (cell?.updatedBy === updatedBy) {
-      setCommitPulse(true);
-      const t = setTimeout(() => setCommitPulse(false), 500);
-      return () => clearTimeout(t);
+      const t1 = setTimeout(() => setCommitPulse(true), 0);
+      const t2 = setTimeout(() => setCommitPulse(false), 500);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     }
   }, [cell?.updatedAt, cell?.updatedBy, updatedBy]);
 
   // Heat map rAF loop: fade from bright green → transparent over 30s
   useEffect(() => {
     if (!heatMap || !cell?.updatedAt) {
-      setHeatOpacity(0);
-      return;
+      const t = setTimeout(() => setHeatOpacity(0), 0);
+      return () => clearTimeout(t);
     }
     const update = () => {
       const age = Date.now() - cell.updatedAt;
@@ -91,71 +88,72 @@ export function Cell({ row, col, width = 100, height = 28, updatedBy, heatMap, f
     };
   }, [heatMap, cell?.updatedAt]);
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
+  const handleClick = () => {
     if (!editing) {
       selectCell(row, col);
     }
-  }, [row, col, selectCell, editing]);
+  };
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handleMouseDown = (e: React.MouseEvent) => {
     onCellMouseDown?.(row, col, e);
-  }, [row, col, onCellMouseDown]);
+  };
 
-  const handleMouseEnter = useCallback(() => {
+  const handleMouseEnter = () => {
     onCellMouseEnter?.(row, col);
-  }, [row, col, onCellMouseEnter]);
+  };
 
-  const handleDoubleClick = useCallback(() => {
+  const handleDoubleClick = () => {
     setEditValue(cell?.raw ?? "");
     setEditing(true);
     setTimeout(() => inputRef.current?.focus(), 0);
-  }, [cell?.raw]);
+  };
 
   // Enter edit mode when forced by keyboard nav (F2 / Enter)
   useEffect(() => {
     if (forceEdit && !editing) {
-      setEditValue(cell?.raw ?? "");
-      setEditing(true);
-      setTimeout(() => inputRef.current?.focus(), 0);
+      const t = setTimeout(() => {
+        setEditValue(cell?.raw ?? "");
+        setEditing(true);
+        setTimeout(() => inputRef.current?.focus(), 0);
+      }, 0);
+      return () => clearTimeout(t);
     }
   }, [forceEdit, editing, cell?.raw]);
 
-  const handleBlur = useCallback(() => {
+  const handleBlur = () => {
     setEditing(false);
     onEditDone?.();
     const trimmed = editValue.trim();
     if (trimmed !== (cell?.raw ?? "")) {
       updateCell(cellId, trimmed);
     }
-  }, [editValue, cell?.raw, cellId, updateCell, onEditDone]);
+  };
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        e.stopPropagation();
-        const trimmed = editValue.trim();
-        if (trimmed !== (cell?.raw ?? "")) {
-          updateCell(cellId, trimmed);
-        }
-        setEditing(false);
-        onEditDone?.();
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      const trimmed = editValue.trim();
+      if (trimmed !== (cell?.raw ?? "")) {
+        updateCell(cellId, trimmed);
       }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        setEditValue(cell?.raw ?? "");
-        setEditing(false);
-        onEditDone?.();
-        inputRef.current?.blur();
-      }
-    },
-    [editValue, cell?.raw, cellId, updateCell, onEditDone]
-  );
+      setEditing(false);
+      onEditDone?.();
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setEditValue(cell?.raw ?? "");
+      setEditing(false);
+      onEditDone?.();
+      inputRef.current?.blur();
+    }
+  };
 
   useEffect(() => {
     if (editing) {
-      setEditValue(cell?.raw ?? "");
+      const t = setTimeout(() => setEditValue(cell?.raw ?? ""), 0);
+      return () => clearTimeout(t);
     }
   }, [editing, cell?.raw]);
 

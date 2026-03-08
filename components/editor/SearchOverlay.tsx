@@ -32,9 +32,11 @@ export function SearchOverlay({ onClose }: SearchOverlayProps) {
   // Build match list when query changes
   useEffect(() => {
     if (!query.trim()) {
-      setMatches([]);
-      setMatchIndex(0);
-      return;
+      const t = setTimeout(() => {
+        setMatches([]);
+        setMatchIndex(0);
+      }, 0);
+      return () => clearTimeout(t);
     }
     const q = query.toLowerCase();
     const found: CellCoord[] = [];
@@ -48,9 +50,12 @@ export function SearchOverlay({ onClose }: SearchOverlayProps) {
     }
     // Sort by row then col
     found.sort((a, b) => a.row !== b.row ? a.row - b.row : a.col - b.col);
-    setMatches(found);
-    setMatchIndex(0);
-    if (found[0]) setActiveCell(found[0]);
+    const t = setTimeout(() => {
+      setMatches(found);
+      setMatchIndex(0);
+      if (found[0]) setActiveCell(found[0]);
+    }, 0);
+    return () => clearTimeout(t);
   }, [query, sheet, setActiveCell]);
 
   const goTo = useCallback(

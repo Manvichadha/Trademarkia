@@ -62,14 +62,17 @@ export function KeyboardShortcutsModal({ open, onClose }: KeyboardShortcutsModal
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const t = setTimeout(() => setMounted(true), 0);
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === "Escape" || e.key === "?") && open && onClose) {
         onClose();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      clearTimeout(t);
+    };
   }, [open, onClose]);
 
   if (!mounted || !open) return null;

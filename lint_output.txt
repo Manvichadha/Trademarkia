@@ -1,0 +1,49 @@
+
+/Users/viksitchadha/Desktop/Trademarkia/sheet-app/app/auth/page.tsx
+  87:69  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+/Users/viksitchadha/Desktop/Trademarkia/sheet-app/components/editor/Cell.tsx
+  91:24  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/viksitchadha/Desktop/Trademarkia/sheet-app/components/editor/SpreadsheetGrid.tsx
+   3:52  warning  'useImperativeHandle' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+  70:12  error    Error: This value cannot be modified
+
+Modifying component props or hook arguments is not allowed. Consider using a local variable instead.
+
+/Users/viksitchadha/Desktop/Trademarkia/sheet-app/components/editor/SpreadsheetGrid.tsx:70:12
+  68 |       } else {
+  69 |         try {
+> 70 |           (externalScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = scrollContainerRef.current;
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `externalScrollRef` cannot be modified
+  71 |         } catch { /* ignore */ }
+  72 |       }
+  73 |     }  react-hooks/immutability
+
+/Users/viksitchadha/Desktop/Trademarkia/sheet-app/hooks/useKeyboardNav.ts
+  31:11  warning  'activeCell' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/viksitchadha/Desktop/Trademarkia/sheet-app/lib/firebase/auth.ts
+  47:5  warning  Unused eslint-disable directive (no problems were reported from 'no-bitwise')
+  49:5  warning  Unused eslint-disable directive (no problems were reported from 'no-bitwise')
+
+/Users/viksitchadha/Desktop/Trademarkia/sheet-app/lib/spreadsheet/engine.ts
+  7:10  warning  'parseFormula' is defined but never used      @typescript-eslint/no-unused-vars
+  7:24  warning  'getFormulaTokens' is defined but never used  @typescript-eslint/no-unused-vars
+  8:25  warning  'isError' is defined but never used           @typescript-eslint/no-unused-vars
+  9:10  warning  'toCellId' is defined but never used          @typescript-eslint/no-unused-vars
+  9:20  warning  'parseCellId' is defined but never used       @typescript-eslint/no-unused-vars
+
+/Users/viksitchadha/Desktop/Trademarkia/sheet-app/lib/spreadsheet/evaluator.ts
+  109:9  warning  'cycle' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/viksitchadha/Desktop/Trademarkia/sheet-app/lib/utils/color.ts
+  28:5  warning  Unused eslint-disable directive (no problems were reported from 'no-bitwise')
+  30:5  warning  Unused eslint-disable directive (no problems were reported from 'no-bitwise')
+
+/Users/viksitchadha/Desktop/Trademarkia/sheet-app/lib/utils/export.ts
+  7:41  warning  'CellCoord' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 16 problems (2 errors, 14 warnings)
+  0 errors and 4 warnings potentially fixable with the `--fix` option.
+
