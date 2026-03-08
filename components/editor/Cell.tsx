@@ -15,6 +15,7 @@ interface CellProps {
   width?: number;
   height?: number;
   updatedBy: string;
+  heatMap?: boolean;
   forceEdit?: boolean;
   onEditDone?: () => void;
   onCellMouseDown?: (row: number, col: number, e: React.MouseEvent) => void;
@@ -27,15 +28,18 @@ function formatDisplayValue(value: string | number | boolean | null): string {
   return String(value);
 }
 
-export function Cell({ row, col, width = 100, height = 28, updatedBy, forceEdit, onEditDone, onCellMouseDown, onCellMouseEnter }: CellProps) {
+export function Cell({ row, col, width = 100, height = 28, updatedBy, heatMap, forceEdit, onEditDone, onCellMouseDown, onCellMouseEnter }: CellProps) {
   const cellId = toCellId({ row, col });
   const { sheet, updateCell } = useSpreadsheet(updatedBy);
   const { isCellSelected, isActiveCell, selectCell } = useCellSelection();
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const [showShimmer, setShowShimmer] = useState(false);
+  const [heatOpacity, setHeatOpacity] = useState(0);
+  const [commitPulse, setCommitPulse] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const prevUpdatedByRef = useRef<string | null>(null);
+  const heatRafRef = useRef<number | null>(null);
 
   const cell = sheet[cellId];
   const displayValue = cell ? getDisplayValue(sheet, cellId) : null;
@@ -56,6 +60,36 @@ export function Cell({ row, col, width = 100, height = 28, updatedBy, forceEdit,
       prevUpdatedByRef.current = cell.updatedBy;
     }
   }, [cell?.updatedBy, updatedBy]);
+
+  // Commit pulse ripple when this user saves
+  useEffect(() => {
+    if (cell?.updatedBy === updatedBy) {
+      setCommitPulse(true);
+      const t = setTimeout(() => setCommitPulse(false), 500);
+      return () => clearTimeout(t);
+    }
+  }, [cell?.updatedAt, cell?.updatedBy, updatedBy]);
+
+  // Heat map rAF loop: fade from bright green → transparent over 30s
+  useEffect(() => {
+    if (!heatMap || !cell?.updatedAt) {
+      setHeatOpacity(0);
+      return;
+    }
+    const update = () => {
+      const age = Date.now() - cell.updatedAt;
+      const MAX_AGE = 30_000; // 30s
+      const opacity = Math.max(0, 1 - age / MAX_AGE);
+      setHeatOpacity(opacity);
+      if (opacity > 0) {
+        heatRafRef.current = requestAnimationFrame(update);
+      }
+    };
+    heatRafRef.current = requestAnimationFrame(update);
+    return () => {
+      if (heatRafRef.current !== null) cancelAnimationFrame(heatRafRef.current);
+    };
+  }, [heatMap, cell?.updatedAt]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     if (!editing) {
@@ -135,6 +169,9 @@ export function Cell({ row, col, width = 100, height = 28, updatedBy, forceEdit,
     ...(formatting.color && { color: formatting.color }),
     ...(formatting.bgColor && formatting.bgColor !== "transparent" && { backgroundColor: formatting.bgColor }),
     ...(formatting.align && { textAlign: formatting.align }),
+    ...(heatMap && heatOpacity > 0 && !formatting.bgColor && {
+      backgroundColor: `rgba(22, 163, 74, ${heatOpacity * 0.35})`,
+    }),
   };
 
   return (
@@ -144,7 +181,7 @@ export function Cell({ row, col, width = 100, height = 28, updatedBy, forceEdit,
       aria-label={`Cell ${cellId}`}
       className={`relative flex items-center overflow-hidden border-b border-r border-border-subtle px-2 py-0.5 text-sm ${
         selected && !active ? "bg-primary/8" : "bg-surface-1"
-      } ${active ? "cell-selection-glow z-10" : ""} ${showShimmer ? "shimmer-flash" : ""}`}
+      } ${active ? "cell-selection-glow z-10" : ""} ${showShimmer ? "shimmer-flash" : ""} ${commitPulse ? "commit-pulse" : ""} ${heatMap ? "heat-cell" : ""}`}
       style={style}
       onClick={handleClick}
       onMouseDown={handleMouseDown}

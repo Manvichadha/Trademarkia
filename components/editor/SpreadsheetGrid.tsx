@@ -5,6 +5,7 @@ import { toCellId } from "@/lib/spreadsheet/cellAddress";
 import { Cell } from "./Cell";
 import { ColumnHeader } from "./ColumnHeader";
 import { RowHeader } from "./RowHeader";
+import { DraggableColumnHeaders } from "./DraggableColumnHeaders";
 import { useCellSelection } from "@/hooks/useCellSelection";
 import { useResize } from "@/hooks/useResize";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
@@ -18,34 +19,65 @@ const HEADER_WIDTH = 48;
 
 interface SpreadsheetGridProps {
   updatedBy: string;
+  heatMap?: boolean;
+  // Resize — can be provided externally (lifted state) or managed internally
+  getColumnWidth?: (col: number) => number;
+  getRowHeight?: (row: number) => number;
+  startColumnResize?: (col: number, x: number) => void;
+  startRowResize?: (row: number, y: number) => void;
+  resizingColumn?: number | null;
+  resizingRow?: number | null;
   onColumnResize?: (col: number, width: number) => void;
   onRowResize?: (row: number, height: number) => void;
+  scrollRef?: React.RefObject<HTMLDivElement | null>;
+  presenceOverlay?: React.ReactNode;
 }
 
 const COL_LABELS = Array.from({ length: COLS }, (_, i) =>
   toCellId({ row: 0, col: i }).replace(/\d+/, "")
 );
+// COL_LABELS used as fallback reference - actual rendering done in DraggableColumnHeaders
 
 export function SpreadsheetGrid({
   updatedBy,
+  heatMap = false,
+  getColumnWidth: extGetColumnWidth,
+  getRowHeight: extGetRowHeight,
+  startColumnResize: extStartColumnResize,
+  startRowResize: extStartRowResize,
+  resizingColumn: extResizingColumn,
+  resizingRow: extResizingRow,
   onColumnResize,
   onRowResize,
+  scrollRef: externalScrollRef,
+  presenceOverlay,
 }: SpreadsheetGridProps) {
   const { selectCell, selectRange } = useCellSelection();
   const { activeCell } = useSelectionStore();
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ row: number; col: number } | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // Column order for drag-reorder (default: 0..25)
+  const [colOrder, setColOrder] = useState<number[]>(() =>
+    Array.from({ length: COLS }, (_, i) => i)
+  );
+  // Expose scroll ref to parent (for PresenceLayer positioning)
+  useEffect(() => {
+    if (externalScrollRef && scrollContainerRef.current) {
+      (externalScrollRef as React.MutableRefObject<HTMLDivElement | null>).current =
+        scrollContainerRef.current;
+    }
+  });
   // Track which cell is being edited inline
   const [editingCellId, setEditingCellId] = useState<string | null>(null);
 
   const {
-    getColumnWidth,
-    getRowHeight,
-    startColumnResize,
-    startRowResize,
-    resizingColumn,
-    resizingRow,
+    getColumnWidth: internalGetColumnWidth,
+    getRowHeight: internalGetRowHeight,
+    startColumnResize: internalStartColumnResize,
+    startRowResize: internalStartRowResize,
+    resizingColumn: internalResizingColumn,
+    resizingRow: internalResizingRow,
     isResizing,
   } = useResize({
     defaultWidth: DEFAULT_COL_WIDTH,
@@ -53,6 +85,14 @@ export function SpreadsheetGrid({
     onColumnResize,
     onRowResize,
   });
+
+  // Prefer external (lifted) resize state over internal
+  const getColumnWidth = extGetColumnWidth ?? internalGetColumnWidth;
+  const getRowHeight = extGetRowHeight ?? internalGetRowHeight;
+  const startColumnResize = extStartColumnResize ?? internalStartColumnResize;
+  const startRowResize = extStartRowResize ?? internalStartRowResize;
+  const resizingColumn = extResizingColumn !== undefined ? extResizingColumn : internalResizingColumn;
+  const resizingRow = extResizingRow !== undefined ? extResizingRow : internalResizingRow;
 
   // Wire keyboard nav
   const { saveToHistory } = useKeyboardNav({
@@ -155,13 +195,15 @@ export function SpreadsheetGrid({
       {/* Single scrollable container */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-auto"
+        className="relative flex-1 overflow-auto"
       >
+        {/* Presence layer — overlays cells */}
+        {presenceOverlay}
         <div
           className="flex flex-col"
           style={{ minWidth: totalWidth }}
         >
-          {/* Sticky column header row */}
+          {/* Sticky column header row with drag-to-reorder */}
           <div
             className="flex shrink-0 sticky top-0 z-20"
             style={{ height: DEFAULT_ROW_HEIGHT }}
@@ -171,15 +213,20 @@ export function SpreadsheetGrid({
               className="sticky left-0 z-30 shrink-0 border-b border-r border-border-subtle bg-surface-2"
               style={{ width: HEADER_WIDTH, height: DEFAULT_ROW_HEIGHT }}
             />
-            {COL_LABELS.map((_, col) => (
-              <ColumnHeader
-                key={col}
-                col={col}
-                width={getColumnWidth(col)}
-                onResizeStart={startColumnResize}
-                isResizing={resizingColumn === col}
-              />
-            ))}
+            <DraggableColumnHeaders
+              colOrder={colOrder}
+              onReorder={setColOrder}
+              getColumnWidth={getColumnWidth}
+              renderColumnHeader={(col) => (
+                <ColumnHeader
+                  key={col}
+                  col={col}
+                  width={getColumnWidth(col)}
+                  onResizeStart={startColumnResize}
+                  isResizing={resizingColumn === col}
+                />
+              )}
+            />
           </div>
 
           {/* Data rows */}
@@ -203,6 +250,7 @@ export function SpreadsheetGrid({
                     col={col}
                     width={getColumnWidth(col)}
                     height={rowH}
+                    heatMap={heatMap}
                     updatedBy={updatedBy}
                     forceEdit={editingCellId === toCellId({ row, col })}
                     onEditDone={() => setEditingCellId(null)}
